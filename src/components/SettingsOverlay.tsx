@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from 'react-query';
 import packageJson from '../../package.json';
 import {
-    X, Mic, Speaker, Monitor, Keyboard, BookOpen, LogOut, Upload,
-    ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-    Camera, RotateCcw, Eye, Layout, MessageSquare, Crop,
-    ChevronDown, ChevronUp, Check, BadgeCheck, Power, Palette, Ghost, Sun, Moon, RefreshCw, Info, Globe, FlaskConical, Terminal, Settings, Activity, ExternalLink, Trash2,
-    Sparkles, Pencil, MapPin, HelpCircle, Zap, SlidersHorizontal, PointerOff,
+    X, Mic, Speaker, Monitor, Keyboard, BookOpen, Upload,
+    ArrowDown,
+    RotateCcw, Eye, Layout, MessageSquare,
+    ChevronDown, ChevronUp, ChevronRight, Check, BadgeCheck, Power, Palette, Ghost, Sun, Moon, RefreshCw, Info, Globe, FlaskConical, Terminal, Settings, Activity, ExternalLink, Trash2,
+    Pencil, MapPin, HelpCircle, Zap, SlidersHorizontal, PointerOff,
     AlertCircle, Loader2, Shield
 } from 'lucide-react';
 import { analytics } from '../lib/analytics/analytics.service';
@@ -359,7 +359,8 @@ interface SettingsOverlayProps {
 const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, initialTab = 'general' }) => {
     const isLight = useResolvedTheme() === 'light';
     const [activeTab, setActiveTab] = useState(initialTab);
-    
+    const [showMoreShortcuts, setShowMoreShortcuts] = useState<boolean>(false);
+
     // Sync active tab when modal opens
     useEffect(() => {
         if (isOpen && initialTab) {
@@ -1358,8 +1359,17 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                         }}
                         className="bg-bg-elevated w-full max-w-4xl h-[80vh] rounded-2xl border border-border-subtle shadow-2xl overflow-hidden relative"
                     >
-                        <div 
-                            id="settings-panel" 
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close settings"
+                            className="absolute top-4 right-4 z-10 p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-item-active/60 transition-colors"
+                            style={{ visibility: isPreviewingOpacity ? 'hidden' : 'visible' }}
+                        >
+                            <X size={16} strokeWidth={2.25} />
+                        </button>
+                        <div
+                            id="settings-panel"
                             className="flex w-full h-full"
                             style={{ visibility: isPreviewingOpacity ? 'hidden' : 'visible' }}
                         >
@@ -1390,7 +1400,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                         onClick={() => setActiveTab('keybinds')}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'keybinds' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
                                     >
-                                        <Keyboard size={16} /> Keybinds
+                                        <Keyboard size={16} /> Shortcuts
                                     </button>
                                     <button
                                         onClick={() => {
@@ -1410,15 +1420,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                 </nav>
                             </div>
 
-                            <div className="mt-auto p-6 border-t border-border-subtle">
+                            <div className="mt-auto px-6 py-4 border-t border-border-subtle">
                                 <button
+                                    type="button"
                                     onClick={() => window.electronAPI.quitApp()}
-                                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-state-danger hover:bg-state-danger-soft transition-colors flex items-center gap-3"
+                                    className="text-xs font-medium text-text-tertiary hover:text-state-danger transition-colors"
                                 >
-                                    <LogOut size={16} /> Quit Pika
-                                </button>
-                                <button onClick={onClose} className="group mt-2 w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50 transition-colors flex items-center gap-3">
-                                    <X size={18} className="group-hover:text-state-danger transition-colors" /> Close
+                                    Quit Pika
                                 </button>
                             </div>
                         </div>
@@ -2050,11 +2058,11 @@ Core Skills
                                 <AIProvidersSettings />
                             )}
                             {activeTab === 'keybinds' && (
-                                <div className="space-y-5 animated fadeIn select-text pb-4">
+                                <div className="space-y-3 animated fadeIn select-text pb-4">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="max-w-2xl">
-                                            <h3 className="text-lg font-bold text-text-primary mb-1">Keyboard Shortcuts</h3>
-                                            <p className="text-xs text-text-secondary leading-relaxed">Customize the shortcuts you use most. Changes apply instantly and keep this page aligned with the premium settings design language.</p>
+                                            <h3 className="text-lg font-bold text-text-primary mb-1">Shortcuts</h3>
+                                            <p className="text-xs text-text-secondary leading-relaxed">Customize how you trigger Pika.</p>
                                         </div>
                                         <button
                                             onClick={resetShortcuts}
@@ -2065,142 +2073,85 @@ Core Skills
                                         </button>
                                     </div>
 
-                                    <div className="grid gap-4">
-                                        <div className="bg-bg-card border border-border-subtle rounded-2xl p-4 md:p-5">
-                                            <div className="mb-4">
-                                                <h4 className="text-sm font-semibold text-text-primary tracking-tight">General controls</h4>
-                                                <p className="text-xs text-text-tertiary mt-1">Core overlay actions, screenshot tools, and quick controls.</p>
+                                    <div className="bg-bg-card border border-border-subtle rounded-2xl p-4 md:p-5">
+                                        {[
+                                            { id: 'toggleVisibility', label: 'Show or hide Pika' },
+                                            { id: 'whatToAnswer', label: 'What should I answer?' },
+                                            { id: 'captureAndProcess', label: 'Capture screen and ask AI' },
+                                            { id: 'processScreenshots', label: 'Process current screenshots' },
+                                            { id: 'resetCancel', label: 'Reset or cancel' },
+                                        ].map((item) => (
+                                            <div key={item.id} className="flex items-center justify-between py-2 border-b border-border-subtle/50 last:border-b-0">
+                                                <span className="text-sm text-text-secondary">{item.label}</span>
+                                                <KeyRecorder
+                                                    currentKeys={shortcuts[item.id as keyof typeof shortcuts]}
+                                                    onSave={(keys) => updateShortcut(item.id as any, keys)}
+                                                />
                                             </div>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><Eye size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Show or hide Pika</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.toggleVisibility}
-                                                        onSave={(keys) => updateShortcut('toggleVisibility', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><PointerOff size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Toggle mouse passthrough</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.toggleMousePassthrough}
-                                                        onSave={(keys) => updateShortcut('toggleMousePassthrough', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><MessageSquare size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Process current screenshots</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.processScreenshots}
-                                                        onSave={(keys) => updateShortcut('processScreenshots', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><Sparkles size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Capture screen and ask AI</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.captureAndProcess}
-                                                        onSave={(keys) => updateShortcut('captureAndProcess', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><RotateCcw size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Reset or cancel current action</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.resetCancel}
-                                                        onSave={(keys) => updateShortcut('resetCancel', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><Camera size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Take a full screenshot</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.takeScreenshot}
-                                                        onSave={(keys) => updateShortcut('takeScreenshot', keys)}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center justify-between py-1.5 group">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center"><Crop size={14} /></span>
-                                                        <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">Capture a selected area</span>
-                                                    </div>
-                                                    <KeyRecorder
-                                                        currentKeys={shortcuts.selectiveScreenshot}
-                                                        onSave={(keys) => updateShortcut('selectiveScreenshot', keys)}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
+                                        ))}
+                                    </div>
 
-                                        <div className="bg-bg-card border border-border-subtle rounded-2xl p-4 md:p-5">
-                                            <div className="mb-4">
-                                                <h4 className="text-sm font-semibold text-text-primary tracking-tight">AI actions</h4>
-                                                <p className="text-xs text-text-tertiary mt-1">Shortcuts for answers, follow-ups, navigation, and response helpers.</p>
-                                            </div>
-                                            <div className="space-y-1">
+                                    <div className="bg-bg-card border border-border-subtle rounded-2xl p-4 md:p-5">
+                                        <button
+                                            onClick={() => setShowMoreShortcuts(!showMoreShortcuts)}
+                                            className="w-full flex items-center justify-between text-left text-sm text-text-secondary hover:text-text-primary transition-colors"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <ChevronRight size={15} className={`transition-transform ${showMoreShortcuts ? 'rotate-90' : ''}`} />
+                                                More shortcuts
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-full bg-bg-subtle text-[11px] text-text-tertiary font-medium">15</span>
+                                        </button>
+
+                                        {showMoreShortcuts && (
+                                            <div className="mt-4">
                                                 {[
-                                                    { id: 'whatToAnswer', label: 'What should I answer?', icon: <Sparkles size={14} /> },
-                                                    { id: 'clarify', label: 'Clarify the question', icon: <MessageSquare size={14} /> },
-                                                    { id: 'followUp', label: 'Generate a follow-up', icon: <MessageSquare size={14} /> },
-                                                    { id: 'dynamicAction4', label: 'Recap or brainstorm', icon: <RefreshCw size={14} /> },
-                                                    { id: 'answer', label: 'Answer or record', icon: <Mic size={14} /> },
-                                                    { id: 'codeHint', label: 'Get a code hint', icon: <Zap size={14} /> },
-                                                    { id: 'brainstorm', label: 'Brainstorm approaches', icon: <Zap size={14} /> },
-                                                    { id: 'scrollUp', label: 'Scroll up', icon: <ArrowUp size={14} /> },
-                                                    { id: 'scrollDown', label: 'Scroll down', icon: <ArrowDown size={14} /> },
-                                                ].map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between py-1.5 group">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center">{item.icon}</span>
-                                                            <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">{item.label}</span>
-                                                        </div>
-                                                        <KeyRecorder
-                                                            currentKeys={shortcuts[item.id as keyof typeof shortcuts]}
-                                                            onSave={(keys) => updateShortcut(item.id as any, keys)}
-                                                        />
+                                                    {
+                                                        title: 'AI actions',
+                                                        items: [
+                                                            { id: 'clarify', label: 'Clarify the question' },
+                                                            { id: 'followUp', label: 'Generate a follow-up' },
+                                                            { id: 'dynamicAction4', label: 'Recap or brainstorm' },
+                                                            { id: 'answer', label: 'Answer or record' },
+                                                            { id: 'codeHint', label: 'Get a code hint' },
+                                                            { id: 'brainstorm', label: 'Brainstorm approaches' },
+                                                            { id: 'scrollUp', label: 'Scroll up' },
+                                                            { id: 'scrollDown', label: 'Scroll down' },
+                                                        ],
+                                                    },
+                                                    {
+                                                        title: 'Window',
+                                                        items: [
+                                                            { id: 'moveWindowUp', label: 'Move up' },
+                                                            { id: 'moveWindowDown', label: 'Move down' },
+                                                            { id: 'moveWindowLeft', label: 'Move left' },
+                                                            { id: 'moveWindowRight', label: 'Move right' },
+                                                        ],
+                                                    },
+                                                    {
+                                                        title: 'Other',
+                                                        items: [
+                                                            { id: 'toggleMousePassthrough', label: 'Toggle mouse passthrough' },
+                                                            { id: 'takeScreenshot', label: 'Full screenshot' },
+                                                            { id: 'selectiveScreenshot', label: 'Selective screenshot' },
+                                                        ],
+                                                    },
+                                                ].map((group) => (
+                                                    <div key={group.title} className="border-t border-border-subtle pt-3 first:border-t-0 first:pt-0">
+                                                        <div className="text-[10px] uppercase tracking-wider text-text-tertiary font-medium mb-1 mt-3 first:mt-0">{group.title}</div>
+                                                        {group.items.map((item) => (
+                                                            <div key={item.id} className="flex items-center justify-between py-2 border-b border-border-subtle/50 last:border-b-0">
+                                                                <span className="text-sm text-text-secondary">{item.label}</span>
+                                                                <KeyRecorder
+                                                                    currentKeys={shortcuts[item.id as keyof typeof shortcuts]}
+                                                                    onSave={(keys) => updateShortcut(item.id as any, keys)}
+                                                                />
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
-
-                                        <div className="bg-bg-card border border-border-subtle rounded-2xl p-4 md:p-5">
-                                            <div className="mb-4">
-                                                <h4 className="text-sm font-semibold text-text-primary tracking-tight">Window movement</h4>
-                                                <p className="text-xs text-text-tertiary mt-1">Reposition the overlay without breaking your flow.</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                {[
-                                                    { id: 'moveWindowUp', label: 'Move window up', icon: <ArrowUp size={14} /> },
-                                                    { id: 'moveWindowDown', label: 'Move window down', icon: <ArrowDown size={14} /> },
-                                                    { id: 'moveWindowLeft', label: 'Move window left', icon: <ArrowLeft size={14} /> },
-                                                    { id: 'moveWindowRight', label: 'Move window right', icon: <ArrowRight size={14} /> }
-                                                ].map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between py-1.5 group">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-text-tertiary group-hover:text-text-primary transition-colors w-5 flex justify-center">{item.icon}</span>
-                                                            <span className="text-sm text-text-secondary font-medium group-hover:text-text-primary transition-colors">{item.label}</span>
-                                                        </div>
-                                                        <KeyRecorder
-                                                            currentKeys={shortcuts[item.id as keyof typeof shortcuts]}
-                                                            onSave={(keys) => updateShortcut(item.id as any, keys)}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

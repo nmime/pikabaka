@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowRight, Briefcase, Calendar, CheckCircle, DownloadCloud, Ghost, Link as LinkIcon, RefreshCw, Zap } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import icon from '../../assets/icon.png';
 import MeetingDetails from './MeetingDetails';
 import GlobalChatOverlay from './GlobalChatOverlay';
 import LauncherHeader from './launcher/LauncherHeader';
@@ -278,7 +277,7 @@ const Launcher: React.FC<LauncherProps> = ({
                                                 analytics.trackCommandExecuted('start_pika_cta');
                                             }
                                         }} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className={`flex shrink-0 items-center justify-center gap-3 rounded-full px-6 py-3 font-celeb text-xl font-medium text-white shadow-lg ${isMeetingActive ? 'bg-state-success' : 'bg-state-info'}`}>
-                                            {isMeetingActive ? <span className="h-2.5 w-2.5 rounded-full bg-white shadow-sm" /> : <img src={icon} alt="Logo" className="h-5 w-5 object-contain" />}
+                                            {isMeetingActive && <span className="h-2.5 w-2.5 rounded-full bg-white shadow-sm" />}
                                             {isMeetingActive ? 'Meeting ongoing' : 'Start Pika'}
                                         </motion.button>
                                     </div>
