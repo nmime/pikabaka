@@ -2,7 +2,46 @@
   "name": "pika",
   "version": "2.1.0",
   "main": "dist-electron/electron/main.js",
-  "description": "AI-powered interview copilot and meeting assistant.",
+  "description": "Open-source AI interview copilot and meeting assistant. Real-time transcription, AI-suggested answers, and screenshot reasoning — bring your own LLM key or run fully offline with Ollama.",
+  "homepage": "https://github.com/royisme/pikabaka#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/royisme/pikabaka.git"
+  },
+  "bugs": {
+    "url": "https://github.com/royisme/pikabaka/issues"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Roy Zhu",
+    "url": "https://github.com/royisme"
+  },
+  "keywords": [
+    "ai",
+    "interview-copilot",
+    "meeting-assistant",
+    "real-time-transcription",
+    "speech-to-text",
+    "llm",
+    "ollama",
+    "openai",
+    "anthropic",
+    "claude",
+    "gemini",
+    "groq",
+    "rag",
+    "sqlite-vec",
+    "electron",
+    "react",
+    "rust",
+    "napi-rs",
+    "cluely-alternative",
+    "open-source",
+    "macos",
+    "windows",
+    "screenshot-ai",
+    "privacy-first"
+  ],
   "scripts": {
     "clean": "rimraf dist dist-electron",
     "dev": "vite",
