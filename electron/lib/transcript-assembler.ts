@@ -1,6 +1,6 @@
 import type { AppState } from "../main"
 import { CredentialsManager } from "../services/CredentialsManager"
-import { isTranscriptTranslationConfigured } from "../transcript/translationExecutor"
+import { isTranscriptTranslationConfigured, isSameLanguage } from "../transcript/translationExecutor"
 
 export type TranscriptSpeaker = 'interviewer' | 'user';
 
@@ -11,6 +11,7 @@ export interface BufferedTranscriptTurn {
   confidence: number;
   text: string;
   flushTimer: NodeJS.Timeout | null;
+  detectedLanguage?: string;
 }
 
 export type TranscriptAssemblerProfile = 'sentence_bias' | 'low_latency' | 'coherent';
@@ -135,7 +136,8 @@ export function bufferFinalTranscriptChunk(
   speaker: TranscriptSpeaker,
   text: string,
   timestamp: number,
-  confidence: number
+  confidence: number,
+  detectedLanguage?: string
 ): void {
   const state = appState as any;
   const thresholds = getTranscriptAssemblerThresholds(appState);
@@ -161,12 +163,14 @@ export function bufferFinalTranscriptChunk(
       confidence,
       text: normalizedText,
       flushTimer: null,
+      detectedLanguage,
     };
     state.transcriptTurnBuffers[speaker] = buffer;
   } else {
     buffer.text = mergeTranscriptText(appState, buffer.text, normalizedText);
     buffer.lastUpdatedAt = timestamp;
     buffer.confidence = Math.max(buffer.confidence, confidence);
+    if (detectedLanguage) buffer.detectedLanguage = detectedLanguage;
   }
 
   const wordCount = buffer.text.split(/\s+/).length;
@@ -236,6 +240,7 @@ export async function flushBufferedTranscriptTurn(appState: AppState, speaker: T
       timestamp,
       confidence,
       segmentId: buffer.segmentId,
+      detectedLanguage: buffer.detectedLanguage,
     });
     return;
   }
@@ -264,9 +269,10 @@ export async function emitTranscriptWithTranslation(appState: AppState, params: 
   segmentId: string;
   speakerLabel?: string;
   forceTranslate?: boolean;
+  detectedLanguage?: string;
 }): Promise<{ success: boolean; error?: string; translatedText?: string }> {
   const state = appState as any;
-  const { speaker, text, timestamp, confidence, segmentId, speakerLabel, forceTranslate = false } = params;
+  const { speaker, text, timestamp, confidence, segmentId, speakerLabel, forceTranslate = false, detectedLanguage } = params;
   const { CredentialsManager } = require('../services/CredentialsManager');
   const cm = CredentialsManager.getInstance();
   const displayMode = cm.getTranscriptTranslationDisplayMode();
@@ -323,6 +329,28 @@ export async function emitTranscriptWithTranslation(appState: AppState, params: 
       : { success: true };
   }
 
+  const targetLanguageKey = cm.getTranscriptTranslationTargetLanguage();
+  const sourceLanguageKey = cm.getTranscriptTranslationSourceLanguage();
+  const effectiveSource = detectedLanguage || (sourceLanguageKey && sourceLanguageKey !== 'auto' ? sourceLanguageKey : undefined);
+  if (effectiveSource && isSameLanguage(effectiveSource, targetLanguageKey)) {
+    const translatedPayloadText = displayMode === 'translated' ? text : text;
+    emitNativeAudioTranscript(appState, {
+      speaker,
+      text: translatedPayloadText,
+      sourceText: text,
+      translatedText: text,
+      segmentId,
+      timestamp,
+      final: true,
+      confidence,
+      displayMode,
+      translationState: 'complete' as const,
+      speakerLabel,
+      detectedLanguage,
+    });
+    return { success: true, translatedText: text };
+  }
+
   emitNativeAudioTranscript(appState, pendingPayload);
 
   try {
@@ -331,8 +359,9 @@ export async function emitTranscriptWithTranslation(appState: AppState, params: 
       prompt: translationPrompt,
       sourceText: text,
       ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
-      sourceLanguageKey: cm.getTranscriptTranslationSourceLanguage(),
-      targetLanguageKey: cm.getTranscriptTranslationTargetLanguage(),
+      sourceLanguageKey,
+      targetLanguageKey,
+      detectedLanguageKey: detectedLanguage,
     };
     let translatedText: string;
     if (oaiCompat && !standardProviders.has(translationProvider)) {
@@ -363,6 +392,7 @@ export async function emitTranscriptWithTranslation(appState: AppState, params: 
       displayMode,
       translationState: 'complete' as const,
       speakerLabel,
+      detectedLanguage,
     });
     return { success: true, translatedText: translatedText || undefined };
   } catch (error: any) {
@@ -379,6 +409,7 @@ export async function emitTranscriptWithTranslation(appState: AppState, params: 
       displayMode,
       translationState: 'error' as const,
       speakerLabel,
+      detectedLanguage,
     });
     return { success: false, error: error?.message || 'Transcript translation failed' };
   }

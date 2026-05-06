@@ -118,7 +118,7 @@ export function createSTTProvider(appState: AppState, speaker: 'interviewer' | '
 
   stt.setRecognitionLanguage(sttLanguage);
 
-  stt.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number }) => {
+  stt.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number, detectedLanguage?: string }) => {
     if (!state.isMeetingActive) {
       return;
     }
@@ -137,7 +137,7 @@ export function createSTTProvider(appState: AppState, speaker: 'interviewer' | '
     const displayMode = CredentialsManager.getInstance().getTranscriptTranslationDisplayMode();
 
     if (segment.isFinal) {
-      bufferFinalTranscriptChunk(appState, speaker, segment.text, timestamp, segment.confidence);
+      bufferFinalTranscriptChunk(appState, speaker, segment.text, timestamp, segment.confidence, segment.detectedLanguage);
     } else {
       emitNativeAudioTranscript(appState, {
         speaker,
@@ -149,6 +149,7 @@ export function createSTTProvider(appState: AppState, speaker: 'interviewer' | '
         confidence: segment.confidence,
         displayMode,
         translationState: 'skipped' as const,
+        detectedLanguage: segment.detectedLanguage,
       });
     }
 

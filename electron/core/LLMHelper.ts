@@ -52,6 +52,8 @@ export interface TranscriptTranslationRequest {
   sourceLanguageKey?: string;
   /** RECOGNITION_LANGUAGES key */
   targetLanguageKey?: string;
+  /** Per-segment language detected by STT provider (overrides sourceLanguageKey as a hint when present). */
+  detectedLanguageKey?: string;
   /** When provider is `openai-compatible`, URL + key from AI Providers (saved endpoint). */
   openAICompatible?: { baseUrl: string; apiKey: string };
 }
@@ -396,6 +398,7 @@ export class LLMHelper {
     const fullPrompt = buildTranscriptTranslationPrompt(request.prompt || '', sourceText, {
       sourceLanguageKey: request.sourceLanguageKey,
       targetLanguageKey: request.targetLanguageKey,
+      detectedLanguageKey: request.detectedLanguageKey,
     });
 
     if (request.provider === 'ollama') {

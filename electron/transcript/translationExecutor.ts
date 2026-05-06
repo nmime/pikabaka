@@ -9,6 +9,21 @@ function languageLabelForKey(key: string | undefined): string | undefined {
   return entry?.label || key;
 }
 
+/** Normalize a language key/code to its base ISO 639 code (e.g. 'english-us' → 'en', 'zh-CN' → 'zh'). */
+export function normalizeLanguageToIso639(key: string | undefined): string | undefined {
+  if (!key || key === 'auto') return undefined;
+  const entry = RECOGNITION_LANGUAGES[key];
+  if (entry?.iso639) return entry.iso639.toLowerCase();
+  return key.toLowerCase().split(/[-_]/)[0] || undefined;
+}
+
+/** Whether two language identifiers refer to the same base language. */
+export function isSameLanguage(a: string | undefined, b: string | undefined): boolean {
+  const na = normalizeLanguageToIso639(a);
+  const nb = normalizeLanguageToIso639(b);
+  return !!na && !!nb && na === nb;
+}
+
 export function isTranscriptTranslationConfigured(
   enabled: boolean,
   model: string,
@@ -20,21 +35,25 @@ export function isTranscriptTranslationConfigured(
 export function buildTranscriptTranslationPrompt(
   basePrompt: string,
   sourceText: string,
-  opts?: { sourceLanguageKey?: string; targetLanguageKey?: string }
+  opts?: { sourceLanguageKey?: string; targetLanguageKey?: string; detectedLanguageKey?: string }
 ): string {
   const prompt = basePrompt.trim() || DEFAULT_TRANSCRIPT_TRANSLATION_PROMPT;
   const source = sourceText.trim();
   const targetLabel = languageLabelForKey(opts?.targetLanguageKey);
+  const detectedLabel = languageLabelForKey(opts?.detectedLanguageKey);
   const sourceLabel = languageLabelForKey(opts?.sourceLanguageKey);
+  const hintLabel = detectedLabel || sourceLabel;
 
   let direction = '';
   if (targetLabel) {
-    if (sourceLabel) {
-      direction = `Translate from ${sourceLabel} to ${targetLabel}.\n\n`;
-    } else {
-      direction = `Translate into ${targetLabel}. Infer the source language from the text.\n\n`;
+    direction = `Translate the source text into ${targetLabel}. Auto-detect the source language. If the source is already in ${targetLabel}, return it unchanged verbatim.`;
+    if (hintLabel) {
+      direction += ` (Likely source language: ${hintLabel}, but trust the actual text.)`;
     }
+    direction += '\n\n';
+  } else {
+    direction = `Translate the source text. Auto-detect the source language. If unsure of target, default to English.\n\n`;
   }
 
-  return `${direction}${prompt}\n\nSource text:\n${source}\n\nOutput requirements:\n- Return translated text only\n- No explanations\n- No markdown`;
+  return `${direction}${prompt}\n\nSource text:\n${source}\n\nOutput requirements:\n- Return translated text only\n- No explanations\n- No markdown\n- If source already matches the target language, return the source text unchanged`;
 }
