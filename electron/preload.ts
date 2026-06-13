@@ -195,6 +195,7 @@ interface ElectronAPI {
   // Streaming listeners
   streamGeminiChat: (message: string, imagePaths?: string[], context?: string, options?: { skipSystemPrompt?: boolean }) => Promise<void>
   onGeminiStreamToken: (callback: (token: string) => void) => () => void
+  onGeminiStreamStatus: (callback: (data: { provider?: string; providerName?: string; model?: string; message: string }) => void) => () => void
   onGeminiStreamDone: (callback: () => void) => () => void
   onGeminiStreamError: (callback: (error: string) => void) => () => void
 
@@ -248,6 +249,7 @@ interface ElectronAPI {
   chatStreamMeeting: (params: { requestId: string; meetingId: string; messages: Array<{ role: string; content: string }>; context?: string }) => Promise<{ success?: boolean; error?: string }>
   chatCancelStream: (requestId: string) => Promise<{ success: boolean }>
   onChatStreamChunk: (callback: (data: { requestId: string; chunk: string }) => void) => () => void
+  onChatStreamStatus: (callback: (data: { requestId: string; provider?: string; providerName?: string; model?: string; message: string }) => void) => () => void
   onChatStreamComplete: (callback: (data: { requestId: string }) => void) => () => void
   onChatStreamError: (callback: (data: { requestId: string; error: string }) => void) => () => void
 
@@ -802,6 +804,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
 
+  onGeminiStreamStatus: (callback: (data: { provider?: string; providerName?: string; model?: string; message: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("gemini-stream-status", subscription)
+    return () => {
+      ipcRenderer.removeListener("gemini-stream-status", subscription)
+    }
+  },
+
   onGeminiStreamDone: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("gemini-stream-done", subscription)
@@ -1039,6 +1049,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const handler = (_: any, data: any) => callback(data)
     ipcRenderer.on('chat:stream-chunk', handler)
     return () => ipcRenderer.removeListener('chat:stream-chunk', handler)
+  },
+  onChatStreamStatus: (callback: (data: { requestId: string; provider?: string; providerName?: string; model?: string; message: string }) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('chat:stream-status', handler)
+    return () => ipcRenderer.removeListener('chat:stream-status', handler)
   },
   onChatStreamComplete: (callback: (data: { requestId: string }) => void) => {
     const handler = (_: any, data: any) => callback(data)

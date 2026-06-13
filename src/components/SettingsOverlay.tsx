@@ -461,7 +461,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
     const [availableLanguages, setAvailableLanguages] = useState<Record<string, any>>({});
 
     // AI Response Language
-    const [aiResponseLanguage, setAiResponseLanguage] = useState('English');
+    const [aiResponseLanguage, setAiResponseLanguage] = useState('auto');
     const [availableAiLanguages, setAvailableAiLanguages] = useState<any[]>([]);
 
     // Overlay Opacity state
@@ -654,8 +654,10 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
 
             if (window.electronAPI?.getAiResponseLanguages) {
                 const aiLangs = await window.electronAPI.getAiResponseLanguages();
-                // Sort: English first, then alphabetical
+                // Sort: Autodetect first, English second, then alphabetical
                 const sortedAiLangs = [...aiLangs].sort((a, b) => {
+                    if (a.code === 'auto') return -1;
+                    if (b.code === 'auto') return 1;
                     if (a.label === 'English') return -1;
                     if (b.label === 'English') return 1;
                     return a.label.localeCompare(b.label);
@@ -663,7 +665,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                 setAvailableAiLanguages(sortedAiLangs);
 
                 const storedAi = await window.electronAPI.getAiResponseLanguage();
-                setAiResponseLanguage(storedAi || 'English');
+                setAiResponseLanguage(storedAi || 'auto');
             }
         };
         loadLanguages();
@@ -850,7 +852,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                     if (creds.azureRegion) setSttAzureRegion(creds.azureRegion);
                     setHasStoredIbmWatsonKey(creds.hasIbmWatsonKey);
                     setHasStoredSonioxKey(creds.hasSonioxKey || false);
-                    setTranscriptTranslationEnabled(!!creds.transcriptTranslationEnabled);
+                    setTranscriptTranslationEnabled(creds.transcriptTranslationEnabled === true);
                     setTranscriptTranslationProvider(creds.transcriptTranslationProvider || 'ollama');
                     setTranscriptTranslationModel(creds.transcriptTranslationModel || '');
                     if (typeof creds.transcriptTranslationPrompt === 'string' && creds.transcriptTranslationPrompt.length > 0) {
@@ -1696,7 +1698,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                                         </div>
                                                         <div>
                                                             <h3 className="text-sm font-bold text-text-primary">AI Response Language</h3>
-                                                            <p className="text-xs text-text-secondary mt-0.5">Language for AI suggestions and notes</p>
+                                                            <p className="text-xs text-text-secondary mt-0.5">Autodetect by default; only force a language if selected here</p>
                                                         </div>
                                                     </div>
 
@@ -1706,7 +1708,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                                             className="bg-bg-component hover:bg-bg-elevated border border-border-subtle text-text-primary pl-4 pr-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 min-w-[110px] justify-between"
                                                         >
                                                             <span className="capitalize text-ellipsis overflow-hidden whitespace-nowrap">
-                                                                {aiResponseLanguage}
+                                                                {availableAiLanguages.find((option) => option.code === aiResponseLanguage)?.label || aiResponseLanguage}
                                                             </span>
                                                             <ChevronDown size={12} className={`shrink-0 transition-transform ${isAiLangDropdownOpen ? 'rotate-180' : ''}`} />
                                                         </button>
