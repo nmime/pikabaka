@@ -26,9 +26,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Use the :raw scripts directly to skip `pnpm run verify` (lint + test).
-      # Lint/test infra is not part of the smoke contract; we only verify
-      # the renderer + electron main process compile cleanly.
+      # Run the focused companion smoke, then use :raw build scripts to avoid
+      # making this workflow a duplicate of the full lint + test verify gate.
+      - name: Phone companion smoke test
+        run: pnpm run test:companion:smoke
+
       - name: Build renderer
         run: pnpm run build:web:raw
 
