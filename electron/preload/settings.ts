@@ -13,6 +13,10 @@ export function settingsChannels() {
         ipcRenderer.removeListener('theme:changed', subscription)
       }
     },
+    configPreviewExport: (clientPreferences?: Record<string, unknown>) => ipcRenderer.invoke('config-backup:preview-export', clientPreferences),
+    configExportAll: (clientPreferences?: Record<string, unknown>) => ipcRenderer.invoke('config-backup:export-all', clientPreferences),
+    configImportAll: () => ipcRenderer.invoke('config-backup:import-all'),
+    configCreateBackup: () => ipcRenderer.invoke('config-backup:create-backup'),
     getKeybinds: () => ipcRenderer.invoke('keybinds:get-all'),
     setKeybind: (id: string, accelerator: string) => ipcRenderer.invoke('keybinds:set', id, accelerator),
     resetKeybinds: () => ipcRenderer.invoke('keybinds:reset'),

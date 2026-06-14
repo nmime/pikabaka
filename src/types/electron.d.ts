@@ -3,6 +3,11 @@ type CompanionPairing = { token?: string; url: string; qrDataUrl: string; expire
 type CompanionStatus = { running: boolean; port: number | null; urls: string[]; activeConnections: number; pairedDevices: CompanionDevice[]; pairing?: CompanionPairing | null; settings: { autoStart: boolean; preferredPort: number } }
 type CompanionCommand = { id: string; type: 'ask' | 'clarify' | 'recap' | 'brainstorm' | 'what_to_answer' | 'follow_up' | 'code_hint' | 'attach-file' | 'reset_cancel' | 'toggle_visibility' | 'mouse_passthrough' | 'screenshot' | 'selective_screenshot' | 'ping'; payload?: any; receivedAt: number; deviceId?: string }
 
+
+type ConfigBackupMetadata = { schemaVersion: number; appVersion: string; exportedAt: string; platform: string; includesSecrets: boolean; domains: string[] }
+type ConfigBackupResult = { backupDir: string; files: Record<string, string> }
+type ConfigExportPreview = { metadata: ConfigBackupMetadata; data: Record<string, unknown>; warnings: string[] }
+
 export interface ElectronAPI {
   updateContentDimensions: (dimensions: {
     width: number
@@ -79,6 +84,10 @@ export interface ElectronAPI {
   // LLM Model Management
   getCurrentLlmConfig: () => Promise<{ provider: "ollama" | "gemini" | "custom" | "openai-compatible"; model: string; isOllama: boolean }>
   getAvailableOllamaModels: () => Promise<string[]>
+  configPreviewExport: (clientPreferences?: Record<string, unknown>) => Promise<ConfigExportPreview>
+  configExportAll: (clientPreferences?: Record<string, unknown>) => Promise<{ success: boolean; cancelled?: boolean; filePath?: string; metadata?: ConfigBackupMetadata; error?: string }>
+  configImportAll: () => Promise<{ success: boolean; cancelled?: boolean; backup?: ConfigBackupResult; importedDomains?: string[]; clientPreferences?: Record<string, unknown>; error?: string }>
+  configCreateBackup: () => Promise<{ success: boolean; backup?: ConfigBackupResult; error?: string }>
   companionGetStatus: () => Promise<CompanionStatus>
   companionStart: (preferredPort?: number) => Promise<CompanionStatus>
   companionStop: () => Promise<CompanionStatus>

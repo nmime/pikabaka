@@ -10,6 +10,7 @@ import { registerKnowledgeHandlers } from "./knowledge"
 import { registerTranslationHandlers } from "./translation"
 import { registerCompanionHandlers } from "./companion"
 import { registerMiscHandlers } from "./misc"
+import { registerConfigBackupHandlers } from "./config-backup"
 
 export function initializeIpcHandlers(appState: AppState): void {
   registerCoreHandlers(appState)
@@ -23,4 +24,5 @@ export function initializeIpcHandlers(appState: AppState): void {
   registerTranslationHandlers(appState)
   registerCompanionHandlers(appState)
   registerMiscHandlers(appState)
+  registerConfigBackupHandlers()
 }

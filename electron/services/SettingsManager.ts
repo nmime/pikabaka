@@ -42,6 +42,14 @@ export class SettingsManager {
         this.saveSettings();
     }
 
+    public reload(): void {
+        this.loadSettings();
+    }
+
+    public getAllSettings(): AppSettings {
+        return { ...this.settings };
+    }
+
     private loadSettings(): void {
         try {
             if (fs.existsSync(this.settingsPath)) {
@@ -51,7 +59,7 @@ export class SettingsManager {
                     // Minimal validation to ensure it's an object before assigning
                     if (typeof parsed === 'object' && parsed !== null) {
                         this.settings = parsed;
-                        console.log('[SettingsManager] Settings loaded successfully:', JSON.stringify(this.settings));
+                        console.log('[SettingsManager] Settings loaded successfully');
                     } else {
                         throw new Error('Settings JSON is not a valid object');
                     }
