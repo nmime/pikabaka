@@ -7,11 +7,12 @@ import {
     RotateCcw, Eye, Layout, MessageSquare,
     ChevronDown, ChevronUp, ChevronRight, Check, BadgeCheck, Power, Palette, Ghost, Sun, Moon, RefreshCw, Info, Globe, FlaskConical, Terminal, Settings, Activity, ExternalLink, Trash2,
     Pencil, MapPin, HelpCircle, Zap, SlidersHorizontal, PointerOff,
-    AlertCircle, Loader2, Shield
+    AlertCircle, Loader2, Shield, Smartphone
 } from 'lucide-react';
 import { analytics } from '../lib/analytics/analytics.service';
 import { AboutSection } from './AboutSection';
 import { AIProvidersSettings } from './settings/AIProvidersSettings';
+import { PhoneCompanionSettings } from './settings/PhoneCompanionSettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShortcuts } from '../hooks/useShortcuts';
 import { useResolvedTheme } from '../hooks/useResolvedTheme';
@@ -1412,6 +1413,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'audio' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
                                     >
                                         <Mic size={16} /> Audio
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('companion')}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'companion' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
+                                    >
+                                        <Smartphone size={16} /> Phone Companion
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('keybinds')}
