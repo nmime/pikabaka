@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import * as mammoth from 'mammoth';
 
 export class DocumentParser {
   /**
    * Parse a document file and extract text content.
-   * Supports: .md, .txt (native), .pdf (via pdftotext CLI), .docx (via textutil CLI on macOS)
+   * Supports: .md, .txt (native), .pdf (via pdftotext CLI), .docx (via mammoth with macOS textutil fallback)
    */
   async parse(filePath: string): Promise<{ text: string; metadata: { format: string; pages?: number } }> {
     const ext = path.extname(filePath).toLowerCase();
@@ -40,12 +41,24 @@ export class DocumentParser {
   }
 
   private async parseDOCX(filePath: string) {
-    const tmpFile = filePath + '.tmp.txt';
+    try {
+      const result = await mammoth.extractRawText({ path: filePath });
+      const text = result.value.trim();
+      if (text) return { text, metadata: { format: 'docx' } };
+    } catch {
+      // Fall through to the platform converter below. Mammoth is portable and
+      // deterministic for normal .docx files, but textutil can still rescue
+      // some macOS-readable edge cases.
+    }
+
+    const tmpDir = fs.mkdtempSync(path.join(path.dirname(filePath), '.docx-parse-'));
+    const tmpFile = path.join(tmpDir, 'document.txt');
     try {
       // Use execFileSync to avoid shell injection — arguments passed as array
       execFileSync('textutil', ['-convert', 'txt', '-output', tmpFile, filePath], { timeout: 30000 });
-      const text = fs.readFileSync(tmpFile, 'utf-8');
-      return { text: text.trim(), metadata: { format: 'docx' } };
+      const text = fs.readFileSync(tmpFile, 'utf-8').trim();
+      if (text) return { text, metadata: { format: 'docx' } };
+      throw new Error('DOCX contained no extractable text');
     } catch {
       throw new Error(
         'DOCX parsing failed. Please convert your resume to .md/.txt format.'
@@ -53,6 +66,7 @@ export class DocumentParser {
     } finally {
       // Clean up temp file regardless of success/failure
       try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+      try { fs.rmdirSync(tmpDir); } catch { /* ignore */ }
     }
   }
 }
