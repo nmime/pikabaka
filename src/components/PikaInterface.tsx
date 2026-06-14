@@ -115,12 +115,26 @@ const PikaInterface: React.FC<PikaInterfaceProps> = ({ onEndMeeting, overlayOpac
             void chat.handleRecap();
         } else if (command.type === 'brainstorm') {
             void chat.handleBrainstorm();
+        } else if (command.type === 'follow_up') {
+            if (text) void chat.handleFollowUp(text); else void chat.handleFollowUpQuestions();
+        } else if (command.type === 'code_hint') {
+            void chat.handleCodeHint();
+        } else if (command.type === 'reset_cancel') {
+            void generalHandlersRef.current?.resetCancel?.();
+        } else if (command.type === 'toggle_visibility') {
+            generalHandlersRef.current?.toggleVisibility?.();
+        } else if (command.type === 'mouse_passthrough') {
+            generalHandlersRef.current?.toggleMousePassthrough?.();
+        } else if (command.type === 'screenshot') {
+            void generalHandlersRef.current?.takeScreenshot?.();
+        } else if (command.type === 'selective_screenshot') {
+            void generalHandlersRef.current?.selectiveScreenshot?.();
         } else if (command.type === 'attach-file') {
             const path = command.payload?.path; const preview = command.payload?.preview;
             if (path && preview) handleScreenshotAttach({ path, preview });
             else if (path) void chat.submitPrompt({ userText: `Phone uploaded ${command.payload?.name || 'a file'} at ${path}`, placeholderIntent: 'manual' });
         }
-    }), [chat.submitPrompt, chat.handleWhatToSay, chat.handleClarify, chat.handleRecap, chat.handleBrainstorm, handleScreenshotAttach]);
+    }), [chat.submitPrompt, chat.handleWhatToSay, chat.handleClarify, chat.handleRecap, chat.handleBrainstorm, chat.handleFollowUp, chat.handleFollowUpQuestions, chat.handleCodeHint, handleScreenshotAttach]);
     useEffect(() => window.electronAPI.onSuggestionProcessingStart?.(() => { chat.setIsProcessing(true); setIsExpanded(true); }), [chat.setIsProcessing]);
     useEffect(() => window.electronAPI.onGlobalShortcut?.(({ action }) => {
         const h = handlersRef.current; const g = generalHandlersRef.current; isStealthRef.current = true;

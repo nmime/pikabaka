@@ -12,6 +12,7 @@
 //   • Current branch is main, working tree clean, in sync with origin
 //   • package.json version has a matching `vX.Y.Z` GitHub Release
 // Pipeline:
+//   • pnpm run test:companion:smoke (LAN web companion pairing/command smoke)
 //   • node scripts/build-app.js   (verify → vite → tsc → rust → pack →
 //                                  sign → notarize → staple → dmg/zip)
 //   • xcrun stapler validate     (assert .app is stapled)
@@ -77,6 +78,15 @@ try {
     }
 } catch {
     fail(`Tag ${tag} missing locally. Run: git fetch origin --tags`);
+}
+
+step('Smoke: advanced web phone companion');
+const companionSmoke = spawnSync('pnpm', ['run', 'test:companion:smoke'], { stdio: 'inherit', env: process.env });
+if (companionSmoke.status !== 0) {
+    fail(
+        'Companion smoke test failed. Fix pairing/auth/snapshot/command/upload regressions before building release assets.\n' +
+            '  Re-run locally with: pnpm run test:companion:smoke'
+    );
 }
 
 step('Build: sign + notarize + staple (this is the slow step)');

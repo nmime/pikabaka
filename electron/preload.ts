@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron"
 
 // Types for the exposed Electron API
-type CompanionDevice = { id: string; name: string; pairedAt: number; lastSeenAt: number; userAgent?: string; remoteAddress?: string }
-type CompanionPairing = { token: string; url: string; qrDataUrl: string; expiresAt: number }
-type CompanionStatus = { running: boolean; port: number | null; urls: string[]; activeConnections: number; pairedDevices: CompanionDevice[]; pairing?: CompanionPairing | null }
-type CompanionCommand = { id: string; type: 'ask' | 'clarify' | 'recap' | 'brainstorm' | 'what_to_answer' | 'attach-file' | 'ping'; payload?: any; receivedAt: number; deviceId?: string }
+type CompanionDevice = { id: string; name: string; nickname?: string; role: 'controller' | 'viewer' | 'uploader'; pairedAt: number; createdAt: number; lastSeenAt: number; userAgent?: string; remoteAddress?: string; connected?: boolean }
+type CompanionPairing = { token?: string; url: string; qrDataUrl: string; expiresAt: number }
+type CompanionStatus = { running: boolean; port: number | null; urls: string[]; activeConnections: number; pairedDevices: CompanionDevice[]; pairing?: CompanionPairing | null; settings: { autoStart: boolean; preferredPort: number } }
+type CompanionCommand = { id: string; type: 'ask' | 'clarify' | 'recap' | 'brainstorm' | 'what_to_answer' | 'follow_up' | 'code_hint' | 'attach-file' | 'reset_cancel' | 'toggle_visibility' | 'mouse_passthrough' | 'screenshot' | 'selective_screenshot' | 'ping'; payload?: any; receivedAt: number; deviceId?: string }
 
 interface ElectronAPI {
   updateContentDimensions: (dimensions: {

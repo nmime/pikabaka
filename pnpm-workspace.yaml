@@ -1,3 +1,6 @@
+overrides:
+  caniuse-lite: 1.0.30001781
+
 allowBuilds:
   better-sqlite3: true
   core-js: true

@@ -25,6 +25,14 @@ Short one-line description of the release.
 - Dependency updates
 - Refactored updater logic
 
+## Release Validation
+
+- [ ] `pnpm run test:companion:smoke`
+- [ ] `pnpm run verify`
+- [ ] `pnpm run build:web:raw`
+- [ ] `pnpm run build:electron:raw`
+- [ ] Advanced web phone companion manual checklist completed: `docs/PHONE_COMPANION_RELEASE_CHECKLIST.md`
+
 ## ⚠️macOS Installation (Unsigned Build)
 
 Download the correct architecture .zip or .dmg file for your device (Apple Silicon or Intel).

@@ -19,6 +19,7 @@
     "dev": "vite",
     "lint": "eslint src electron test --no-inline-config",
     "test": "tap --node-arg=--import=tsx \"test/**/*.test.ts\"",
+    "test:companion:smoke": "tap --node-arg=--import=tsx \"test/integration/companion/**/*.test.ts\"",
     "verify": "pnpm run lint && pnpm run test",
     "build:web:raw": "pnpm run clean && tsc && vite build",
     "build": "pnpm run verify && pnpm run build:web:raw",
@@ -145,11 +146,6 @@
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "publish": null
-  },
-  "pnpm": {
-    "overrides": {
-      "caniuse-lite": "1.0.30001781"
-    }
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",

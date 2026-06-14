@@ -211,7 +211,15 @@ export class AppState {
       userDataDir: app.getPath('userData'),
       onCommand: (command: CompanionCommand) => this.broadcast('companion-command', command),
       onStatusChanged: (status) => this.broadcast('companion-status-changed', status),
+      getSettings: () => SettingsManager.getInstance().get('companion'),
     })
+
+    const companionSettings = SettingsManager.getInstance().get('companion');
+    if (companionSettings?.autoStart) {
+      this.companionServer.start(companionSettings.preferredPort || 0).catch((error) => {
+        console.error('[AppState] Failed to auto-start phone companion:', error instanceof Error ? error.message : String(error));
+      });
+    }
 
     this.windowHelper.setContentProtection(this.isUndetectable);
     this.settingsWindowHelper.setContentProtection(this.isUndetectable);
