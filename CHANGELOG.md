@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.0](https://github.com/nmime/pikabaka/compare/v2.2.0...v2.3.0) (2026-06-14)
+
+### Features
+
+* **companion:** add local phone companion MVP ([#2](https://github.com/nmime/pikabaka/pull/2)) ([c2c536f](https://github.com/nmime/pikabaka/commit/c2c536fd6419aab9541f18f3e9ef5e0ed311e91d))
+
+### Bug Fixes
+
+* preserve language defaults and OpenAI-compatible streaming fixes ([dd843f7](https://github.com/nmime/pikabaka/commit/dd843f7a967fed9deb740be589c75f15e61aeff3))
+
 ## [2.2.0](https://github.com/royisme/pikabaka/compare/v2.1.0...v2.2.0) (2026-05-06)
 
 
