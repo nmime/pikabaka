@@ -147,11 +147,6 @@
     },
     "publish": null
   },
-  "pnpm": {
-    "overrides": {
-      "caniuse-lite": "1.0.30001781"
-    }
-  },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
     "@electron/rebuild": "^4.0.3",
