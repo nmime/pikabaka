@@ -7,7 +7,7 @@ import {
     RotateCcw, Eye, Layout, MessageSquare,
     ChevronDown, ChevronUp, ChevronRight, Check, BadgeCheck, Power, Palette, Ghost, Sun, Moon, RefreshCw, Info, Globe, FlaskConical, Terminal, Settings, Activity, ExternalLink, Trash2,
     Pencil, MapPin, HelpCircle, Zap, SlidersHorizontal, PointerOff,
-    AlertCircle, Loader2, Shield, Smartphone
+    AlertCircle, Loader2, Shield, Smartphone, Download, FileWarning
 } from 'lucide-react';
 import { analytics } from '../lib/analytics/analytics.service';
 import { AboutSection } from './AboutSection';
@@ -362,12 +362,22 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
     const [activeTab, setActiveTab] = useState(initialTab);
     const [showMoreShortcuts, setShowMoreShortcuts] = useState<boolean>(false);
 
+    const [configPreview, setConfigPreview] = useState<any | null>(null);
+    const [configOperationStatus, setConfigOperationStatus] = useState<string>('');
+    const [isConfigOperationRunning, setIsConfigOperationRunning] = useState(false);
+
     // Sync active tab when modal opens
     useEffect(() => {
         if (isOpen && initialTab) {
             setActiveTab(initialTab);
         }
     }, [isOpen, initialTab]);
+
+    useEffect(() => {
+        if (isOpen && activeTab === 'backup') {
+            loadConfigPreview();
+        }
+    }, [isOpen, activeTab]);
     
     const { shortcuts, updateShortcut, resetShortcuts } = useShortcuts();
     const [isUndetectable, setIsUndetectable] = useState(false);
@@ -388,6 +398,97 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
     const uploadResume = useUploadResume();
     const { isEnabled: knowledgeMode, toggle: toggleKnowledge } = useKnowledgeMode();
     const profileUploading = uploadResume.isLoading;
+
+
+    const collectClientPreferences = (): Record<string, unknown> => {
+        const preferences: Record<string, unknown> = { localStorage: {} };
+        try {
+            const storage: Record<string, string> = {};
+            for (let i = 0; i < window.localStorage.length; i += 1) {
+                const key = window.localStorage.key(i);
+                if (key) storage[key] = window.localStorage.getItem(key) || '';
+            }
+            preferences.localStorage = storage;
+        } catch (error) {
+            preferences.localStorageError = error instanceof Error ? error.message : String(error);
+        }
+        return preferences;
+    };
+
+    const restoreClientPreferences = (clientPreferences?: Record<string, unknown>) => {
+        const localStoragePrefs = clientPreferences?.localStorage;
+        if (!localStoragePrefs || typeof localStoragePrefs !== 'object' || Array.isArray(localStoragePrefs)) return;
+        for (const [key, value] of Object.entries(localStoragePrefs as Record<string, unknown>)) {
+            if (typeof value === 'string') {
+                window.localStorage.setItem(key, value);
+            }
+        }
+    };
+
+    const loadConfigPreview = async () => {
+        try {
+            const preview = await window.electronAPI?.configPreviewExport?.(collectClientPreferences());
+            setConfigPreview(preview || null);
+        } catch (error) {
+            setConfigOperationStatus(error instanceof Error ? error.message : String(error));
+        }
+    };
+
+    const createConfigBackup = async () => {
+        setIsConfigOperationRunning(true);
+        setConfigOperationStatus('Creating local config backup...');
+        try {
+            const result = await window.electronAPI?.configCreateBackup?.();
+            if (result?.success) {
+                setConfigOperationStatus(`Backup created: ${result.backup?.backupDir || 'done'}`);
+                await loadConfigPreview();
+            } else {
+                setConfigOperationStatus(result?.error || 'Backup was not created.');
+            }
+        } finally {
+            setIsConfigOperationRunning(false);
+        }
+    };
+
+    const exportAllConfig = async () => {
+        const confirmed = window.confirm('Export ALL Pika configuration, including API keys, provider secrets, custom provider commands, companion trusted devices, audio/settings, and shortcuts? Keep the JSON file private.');
+        if (!confirmed) return;
+        setIsConfigOperationRunning(true);
+        setConfigOperationStatus('Waiting for export location...');
+        try {
+            const result = await window.electronAPI?.configExportAll?.(collectClientPreferences());
+            if (result?.success) {
+                setConfigOperationStatus(`Exported ${result.metadata?.domains?.join(', ') || 'config'} to ${result.filePath}`);
+            } else if (result?.cancelled) {
+                setConfigOperationStatus('Export cancelled.');
+            } else {
+                setConfigOperationStatus(result?.error || 'Export failed.');
+            }
+        } finally {
+            setIsConfigOperationRunning(false);
+        }
+    };
+
+    const importAllConfig = async () => {
+        const confirmed = window.confirm('Import a Pika config backup? Current settings, API keys, provider configs, companion trusted devices, and shortcuts may be replaced. Pika will create a backup first.');
+        if (!confirmed) return;
+        setIsConfigOperationRunning(true);
+        setConfigOperationStatus('Waiting for backup file...');
+        try {
+            const result = await window.electronAPI?.configImportAll?.();
+            if (result?.success) {
+                restoreClientPreferences(result.clientPreferences);
+                setConfigOperationStatus(`Imported ${result.importedDomains?.join(', ') || 'config'}. Previous config backup: ${result.backup?.backupDir || 'created'}. Restart Pika if changes are not reflected immediately.`);
+                await loadConfigPreview();
+            } else if (result?.cancelled) {
+                setConfigOperationStatus('Import cancelled.');
+            } else {
+                setConfigOperationStatus(result?.error || 'Import failed.');
+            }
+        } finally {
+            setIsConfigOperationRunning(false);
+        }
+    };
     const profileError = uploadResume.error instanceof Error ? uploadResume.error.message : '';
     const [verboseLogging, setVerboseLogging] = useState(false);
     const [permissionStatus, setPermissionStatus] = useState<{ microphone: string; screen: string } | null>(null);
@@ -1433,6 +1534,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'profile' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
                                     >
                                         <BookOpen size={16} /> Your Background
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveTab('backup')}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'backup' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
+                                    >
+                                        <Shield size={16} /> Backup / Restore
                                     </button>
 
                                     <button
@@ -2838,6 +2946,96 @@ Core Skills
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            )}
+
+
+                            {activeTab === 'backup' && (
+                                <div className="space-y-5 animated fadeIn select-text pb-4">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="max-w-2xl">
+                                            <h3 className="text-lg font-bold text-text-primary mb-1">Backup / Restore All Config</h3>
+                                            <p className="text-xs text-text-secondary leading-relaxed">
+                                                Export and import your complete Pika setup: app settings, provider/model configuration, API keys/secrets, STT/audio language settings, transcript translation, shortcuts, and phone companion trusted devices.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={loadConfigPreview}
+                                            disabled={isConfigOperationRunning}
+                                            className="px-3 py-2 rounded-lg text-xs font-medium border border-border-subtle text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50 disabled:opacity-60"
+                                        >
+                                            Refresh Preview
+                                        </button>
+                                    </div>
+
+                                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+                                        <FileWarning className="text-amber-400 mt-0.5" size={20} />
+                                        <div className="space-y-1">
+                                            <div className="text-sm font-semibold text-text-primary">Full exports contain secrets</div>
+                                            <p className="text-xs text-text-secondary leading-relaxed">
+                                                The exported JSON intentionally includes API keys, custom provider credentials/commands, service account paths, and trusted companion device data so it can restore everything. Store it privately. Preview below is redacted; the backup file is not redacted.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={exportAllConfig}
+                                            disabled={isConfigOperationRunning}
+                                            className="rounded-xl border border-border-subtle bg-bg-item-surface p-4 text-left hover:bg-bg-item-active transition-colors disabled:opacity-60"
+                                        >
+                                            <Download size={18} className="mb-3 text-text-primary" />
+                                            <div className="text-sm font-semibold text-text-primary">Export All Config + Keys</div>
+                                            <div className="text-xs text-text-tertiary mt-1">Choose a JSON file location. Includes secrets.</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={importAllConfig}
+                                            disabled={isConfigOperationRunning}
+                                            className="rounded-xl border border-border-subtle bg-bg-item-surface p-4 text-left hover:bg-bg-item-active transition-colors disabled:opacity-60"
+                                        >
+                                            <Upload size={18} className="mb-3 text-text-primary" />
+                                            <div className="text-sm font-semibold text-text-primary">Import Config Backup</div>
+                                            <div className="text-xs text-text-tertiary mt-1">Creates a rollback backup before writing.</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={createConfigBackup}
+                                            disabled={isConfigOperationRunning}
+                                            className="rounded-xl border border-border-subtle bg-bg-item-surface p-4 text-left hover:bg-bg-item-active transition-colors disabled:opacity-60"
+                                        >
+                                            <Shield size={18} className="mb-3 text-text-primary" />
+                                            <div className="text-sm font-semibold text-text-primary">Backup Current Local Config</div>
+                                            <div className="text-xs text-text-tertiary mt-1">Copies current files into Pika's backup folder.</div>
+                                        </button>
+                                    </div>
+
+                                    {configOperationStatus && (
+                                        <div className="rounded-lg border border-border-subtle bg-bg-item-surface p-3 text-xs text-text-secondary break-words">
+                                            {isConfigOperationRunning && <Loader2 size={14} className="inline mr-2 animate-spin" />}
+                                            {configOperationStatus}
+                                        </div>
+                                    )}
+
+                                    <div className="rounded-xl border border-border-subtle bg-bg-card p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-text-primary">Redacted export preview</h4>
+                                                <p className="text-xs text-text-tertiary">Sensitive values are shown as dots here only. Export files preserve full values.</p>
+                                            </div>
+                                            {configPreview?.metadata?.includesSecrets && (
+                                                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">includes secrets</span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-text-secondary mb-3">
+                                            Domains: {configPreview?.metadata?.domains?.length ? configPreview.metadata.domains.join(', ') : 'No config files found yet'}
+                                        </div>
+                                        <pre className="max-h-72 overflow-auto rounded-lg bg-black/30 p-3 text-[11px] leading-relaxed text-text-secondary whitespace-pre-wrap">
+                                            {configPreview ? JSON.stringify(configPreview, null, 2) : 'Click Refresh Preview to inspect the redacted backup shape.'}
+                                        </pre>
                                     </div>
                                 </div>
                             )}

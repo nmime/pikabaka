@@ -228,6 +228,15 @@ export class CredentialsManager {
         return { ...this.credentials };
     }
 
+    public replaceAllCredentials(credentials: StoredCredentials): void {
+        this.credentials = { ...credentials };
+        this.saveCredentials();
+    }
+
+    public reload(): void {
+        this.loadCredentials();
+    }
+
     // =========================================================================
     // Setters (auto-save)
     // =========================================================================
