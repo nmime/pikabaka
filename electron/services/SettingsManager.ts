@@ -10,6 +10,10 @@ export interface AppSettings {
     verboseLogging?: boolean;
     actionButtonMode?: 'recap' | 'brainstorm';
     transcriptAssemblerProfile?: 'sentence_bias' | 'low_latency' | 'coherent';
+    companion?: {
+        autoStart?: boolean;
+        preferredPort?: number;
+    };
 }
 
 export class SettingsManager {
