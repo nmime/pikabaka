@@ -116,6 +116,7 @@ interface ChatPanelProps {
   handleBrainstorm: () => void;
   handleAnswerNow: () => void;
   handleManualSubmit: () => void;
+  handlePasteImage: () => void;
   isManualRecording: boolean;
   manualTranscript: string;
   voiceInput: string;
@@ -149,6 +150,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   handleBrainstorm,
   handleAnswerNow,
   handleManualSubmit,
+  handlePasteImage,
   isManualRecording,
   manualTranscript,
   voiceInput,
@@ -178,6 +180,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).catch(console.error);
+  };
+
+  const handleInputPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const hasImage = Array.from(event.clipboardData?.items || []).some((item) => item.type.startsWith('image/'));
+    if (!hasImage) return;
+
+    event.preventDefault();
+    handlePasteImage();
   };
 
   const renderMessageText = (msg: Message) => {
@@ -641,6 +651,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
+            onPaste={handleInputPaste}
             className={`w-full min-h-[42px] border focus:ring-1 rounded-xl pl-3 pr-10 py-2.5 focus:outline-none transition-all duration-200 ease-sculpted text-[13px] leading-relaxed ${inputClass}`}
             style={appearance.inputStyle}
           />
