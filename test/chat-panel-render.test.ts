@@ -1,4 +1,6 @@
 import React, { type ReactElement, type ReactNode } from 'react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'tap';
 import {
@@ -188,5 +190,12 @@ test('chat control bar is only a draggable AI chat pane header', (t) => {
   const buttons = collectElements(tree, (element) => element.type === 'button');
   t.equal(buttons.length, 0, 'AI chat header does not duplicate top-level Pause/Stop buttons');
   t.equal(called, 0, 'duplicate run-control callbacks are not wired in the pane header');
+  t.end();
+});
+
+
+test('chat message scroll area can shrink inside responsive columns', (t) => {
+  const chatPanelSource = readFileSync(path.join(process.cwd(), 'src/components/meeting/ChatPanel.tsx'), 'utf8');
+  t.match(chatPanelSource, /flex-1 min-h-0 overflow-y-auto/, 'message area uses min-h-0 so footer/input stay reachable at small heights');
   t.end();
 });

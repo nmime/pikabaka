@@ -1,13 +1,13 @@
 export const SPLITTER_STORAGE_KEY = 'pika_splitter_position';
 export const SPLITTER_STORAGE_VERSION_KEY = 'pika_splitter_position_version';
-export const SPLITTER_STORAGE_VERSION = 'chat-polish-v2';
+export const SPLITTER_STORAGE_VERSION = 'chat-columns-v3';
 
-export const DEFAULT_TRANSCRIPT_SPLIT = 28;
-export const MIN_TRANSCRIPT_SPLIT = 20;
-export const MAX_TRANSCRIPT_SPLIT = 65;
+export const DEFAULT_TRANSCRIPT_SPLIT = 34;
+export const MIN_TRANSCRIPT_SPLIT = 22;
+export const MAX_TRANSCRIPT_SPLIT = 55;
 
-export const MIN_TRANSCRIPT_PANE_PX = 84;
-export const MIN_CHAT_PANE_PX = 260;
+export const MIN_TRANSCRIPT_PANE_PX = 240;
+export const MIN_CHAT_PANE_PX = 360;
 export const SPLITTER_THICKNESS_PX = 6;
 
 export interface SplitterStorageLike {
@@ -48,8 +48,8 @@ export const readStoredSplitterPosition = (storage: SplitterStorageLike) => {
     }
 };
 
-export const calculateSplitterBounds = (contentHeight: number, splitterPosition: unknown): SplitterBounds => {
-    if (!Number.isFinite(contentHeight) || contentHeight <= 0) {
+export const calculateSplitterBounds = (contentSize: number, splitterPosition: unknown): SplitterBounds => {
+    if (!Number.isFinite(contentSize) || contentSize <= 0) {
         const safeSplitterPosition = clampSplitterPosition(splitterPosition);
         return {
             minTranscriptSplit: MIN_TRANSCRIPT_SPLIT,
@@ -60,9 +60,9 @@ export const calculateSplitterBounds = (contentHeight: number, splitterPosition:
         };
     }
 
-    const availableHeight = Math.max(0, contentHeight - SPLITTER_THICKNESS_PX);
-    const transcriptMinLimit = (MIN_TRANSCRIPT_PANE_PX / contentHeight) * 100;
-    const requestedChatLimit = ((availableHeight - MIN_CHAT_PANE_PX) / contentHeight) * 100;
+    const availableSize = Math.max(0, contentSize - SPLITTER_THICKNESS_PX);
+    const transcriptMinLimit = (MIN_TRANSCRIPT_PANE_PX / contentSize) * 100;
+    const requestedChatLimit = ((availableSize - MIN_CHAT_PANE_PX) / contentSize) * 100;
 
     const maxTranscriptSplit = clamp(
         Math.max(transcriptMinLimit, requestedChatLimit),
@@ -71,8 +71,8 @@ export const calculateSplitterBounds = (contentHeight: number, splitterPosition:
     );
     const minTranscriptSplit = clamp(transcriptMinLimit, MIN_TRANSCRIPT_SPLIT, maxTranscriptSplit);
     const safeSplitterPosition = clamp(clampSplitterPosition(splitterPosition), minTranscriptSplit, maxTranscriptSplit);
-    const transcriptPanePx = (safeSplitterPosition / 100) * contentHeight;
-    const chatPanePx = Math.max(0, contentHeight - transcriptPanePx - SPLITTER_THICKNESS_PX);
+    const transcriptPanePx = (safeSplitterPosition / 100) * contentSize;
+    const chatPanePx = Math.max(0, contentSize - transcriptPanePx - SPLITTER_THICKNESS_PX);
 
     return {
         minTranscriptSplit,

@@ -57,49 +57,50 @@ t.test('splitter persistence clamps invalid, too-small, and too-large values', (
   t.end();
 });
 
-t.test('small content heights keep at least the minimum transcript pane and give chat the remainder', (t) => {
-  const height = 320;
-  const layout = calculateSplitterBounds(height, MAX_TRANSCRIPT_SPLIT);
+t.test('small content widths keep at least the minimum transcript column and give chat the remainder', (t) => {
+  const width = 500;
+  const layout = calculateSplitterBounds(width, MAX_TRANSCRIPT_SPLIT);
 
-  t.equal(layout.minTranscriptSplit, (MIN_TRANSCRIPT_PANE_PX / height) * 100);
+  t.equal(layout.minTranscriptSplit, (MIN_TRANSCRIPT_PANE_PX / width) * 100);
   t.equal(layout.maxTranscriptSplit, layout.minTranscriptSplit);
   t.equal(layout.safeSplitterPosition, layout.minTranscriptSplit);
   t.equal(layout.transcriptPanePx, MIN_TRANSCRIPT_PANE_PX);
-  t.equal(layout.chatPanePx, height - MIN_TRANSCRIPT_PANE_PX - SPLITTER_THICKNESS_PX);
-  t.ok(layout.chatPanePx < MIN_CHAT_PANE_PX, 'chat pane uses remaining space when both minimums cannot fit');
+  t.equal(layout.chatPanePx, width - MIN_TRANSCRIPT_PANE_PX - SPLITTER_THICKNESS_PX);
+  t.ok(layout.chatPanePx < MIN_CHAT_PANE_PX, 'chat column uses remaining space when both minimums cannot fit');
   t.end();
 });
 
-t.test('large content heights reserve at least the compact chat pane minimum', (t) => {
-  const height = 900;
-  const layout = calculateSplitterBounds(height, MAX_TRANSCRIPT_SPLIT);
-  const requestedMax = ((height - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / height) * 100;
+t.test('large content widths reserve at least the compact chat column minimum', (t) => {
+  const width = 1100;
+  const layout = calculateSplitterBounds(width, MAX_TRANSCRIPT_SPLIT);
+  const requestedMax = ((width - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / width) * 100;
 
   t.equal(layout.maxTranscriptSplit, Math.min(MAX_TRANSCRIPT_SPLIT, requestedMax));
   t.equal(layout.safeSplitterPosition, layout.maxTranscriptSplit);
-  t.ok(layout.chatPanePx >= MIN_CHAT_PANE_PX, 'chat pane gets at least the compact minimum height');
+  t.ok(layout.chatPanePx >= MIN_CHAT_PANE_PX, 'chat column gets at least the compact minimum width');
   t.ok(layout.transcriptPanePx > MIN_TRANSCRIPT_PANE_PX);
   t.end();
 });
 
-t.test('transcript cannot crush chat when requested split is oversized', (t) => {
-  const height = 700;
-  const layout = calculateSplitterBounds(height, 90);
+t.test('transcript column cannot crush chat when requested split is oversized', (t) => {
+  const width = 900;
+  const layout = calculateSplitterBounds(width, 90);
 
   t.equal(layout.safeSplitterPosition, layout.maxTranscriptSplit);
-  t.equal(Math.round(layout.chatPanePx), MIN_CHAT_PANE_PX);
-  t.equal(layout.safeSplitterPosition, ((height - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / height) * 100);
+  const requestedMax = ((width - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / width) * 100;
+  t.equal(layout.maxTranscriptSplit, Math.min(MAX_TRANSCRIPT_SPLIT, requestedMax));
+  t.ok(layout.chatPanePx >= MIN_CHAT_PANE_PX, 'chat keeps at least its minimum width when possible');
   t.end();
 });
 
-t.test('resize updates maximum split as more height becomes available', (t) => {
-  const compact = calculateSplitterBounds(700, MAX_TRANSCRIPT_SPLIT);
-  const tall = calculateSplitterBounds(1200, MAX_TRANSCRIPT_SPLIT);
+t.test('resize updates maximum split as more width becomes available', (t) => {
+  const compact = calculateSplitterBounds(900, MAX_TRANSCRIPT_SPLIT);
+  const wide = calculateSplitterBounds(1400, MAX_TRANSCRIPT_SPLIT);
 
-  t.ok(tall.maxTranscriptSplit > compact.maxTranscriptSplit);
-  t.equal(compact.chatPanePx, MIN_CHAT_PANE_PX);
-  t.equal(tall.maxTranscriptSplit, MAX_TRANSCRIPT_SPLIT);
-  t.equal(tall.safeSplitterPosition, MAX_TRANSCRIPT_SPLIT);
-  t.ok(tall.chatPanePx > MIN_CHAT_PANE_PX);
+  t.ok(wide.maxTranscriptSplit >= compact.maxTranscriptSplit);
+  t.ok(compact.chatPanePx >= MIN_CHAT_PANE_PX, 'compact width still keeps chat at or above its minimum');
+  t.equal(wide.maxTranscriptSplit, MAX_TRANSCRIPT_SPLIT);
+  t.equal(wide.safeSplitterPosition, MAX_TRANSCRIPT_SPLIT);
+  t.ok(wide.chatPanePx > MIN_CHAT_PANE_PX);
   t.end();
 });
