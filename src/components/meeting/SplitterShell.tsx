@@ -15,8 +15,16 @@ interface SplitterShellProps {
     overlayPanelClass: string;
 }
 
+export const SPLITTER_SHELL_CLASS = 'relative w-full flex-1 min-h-0 min-w-0 border rounded-[24px] overflow-hidden flex flex-col draggable-area overlay-shell-surface';
+export const SPLITTER_CONTENT_CLASS = 'flex-1 min-h-0 min-w-0 flex flex-row';
+export const SPLITTER_LEFT_SECTION_CLASS = 'min-w-0 min-h-0 overflow-hidden flex flex-col bg-white/[0.02]';
+export const SPLITTER_RIGHT_SECTION_CLASS = 'min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col bg-black/[0.04]';
+export const SPLITTER_PANE_BODY_CLASS = 'flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col';
+export const SPLITTER_ORIENTATION = 'vertical' as const;
+export const ZONE_HEADER_CLASS = `${PANE_HEADER_DRAG_CLASS} flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider overlay-text-muted border-b border-border-subtle/50 bg-black/10 select-none shrink-0`;
+
 const ZoneHeader: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-    <div className={`${PANE_HEADER_DRAG_CLASS} flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider overlay-text-muted border-b border-border-subtle/50 bg-black/10 select-none shrink-0`} aria-label={`Drag ${label} pane`} title={`Drag ${label} pane`}>
+    <div className={ZONE_HEADER_CLASS} aria-label={`Drag ${label} pane`} title={`Drag ${label} pane`}>
         {icon}
         <span>{label}</span>
     </div>
@@ -31,23 +39,23 @@ const SplitterShell: React.FC<SplitterShellProps> = ({
     overlayPanelClass,
 }) => {
     const contentRef = useRef<HTMLDivElement>(null);
-    const [contentHeight, setContentHeight] = useState(0);
+    const [contentWidth, setContentWidth] = useState(0);
 
     useEffect(() => {
         const node = contentRef.current;
         if (!node) return;
 
-        const updateHeight = () => setContentHeight(node.getBoundingClientRect().height);
-        updateHeight();
+        const updateWidth = () => setContentWidth(node.getBoundingClientRect().width);
+        updateWidth();
 
-        const observer = new ResizeObserver(updateHeight);
+        const observer = new ResizeObserver(updateWidth);
         observer.observe(node);
         return () => observer.disconnect();
     }, []);
 
     const { maxTranscriptSplit, minTranscriptSplit, safeSplitterPosition } = useMemo(
-        () => calculateSplitterBounds(contentHeight, splitterPosition),
-        [contentHeight, splitterPosition],
+        () => calculateSplitterBounds(contentWidth, splitterPosition),
+        [contentWidth, splitterPosition],
     );
 
     useEffect(() => {
@@ -58,27 +66,27 @@ const SplitterShell: React.FC<SplitterShellProps> = ({
 
     return (
         <div
-            className={`relative w-full flex-1 min-h-0 border rounded-[24px] overflow-hidden flex flex-col draggable-area overlay-shell-surface ${overlayPanelClass}`}
+            className={`${SPLITTER_SHELL_CLASS} ${overlayPanelClass}`}
             style={appearance.shellStyle}
         >
-            <div ref={contentRef} className="flex-1 min-h-0 flex flex-col">
+            <div ref={contentRef} className={SPLITTER_CONTENT_CLASS}>
                 <section
-                    className="min-w-0 min-h-0 overflow-hidden flex flex-col bg-white/[0.02]"
-                    style={{ flex: `0 1 ${safeSplitterPosition}%` }}
+                    className={SPLITTER_LEFT_SECTION_CLASS}
+                    style={{ flex: `0 0 ${safeSplitterPosition}%` }}
                 >
                     <ZoneHeader icon={<Mic className="w-2.5 h-2.5" />} label="Live Transcript" />
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{left}</div>
+                    <div className={SPLITTER_PANE_BODY_CLASS}>{left}</div>
                 </section>
                 <ResizableSplitter
                     position={safeSplitterPosition}
                     onPositionChange={onSplitterChange}
-                    orientation="horizontal"
+                    orientation={SPLITTER_ORIENTATION}
                     min={minTranscriptSplit}
                     max={maxTranscriptSplit}
                 />
-                <section className="min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col bg-black/[0.04]">
+                <section className={SPLITTER_RIGHT_SECTION_CLASS}>
                     <ZoneHeader icon={<MessageSquare className="w-2.5 h-2.5" />} label="AI Chat" />
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{right}</div>
+                    <div className={SPLITTER_PANE_BODY_CLASS}>{right}</div>
                 </section>
             </div>
         </div>

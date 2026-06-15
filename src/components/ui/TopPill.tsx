@@ -1,7 +1,7 @@
 import { ChevronUp, ChevronDown, Pause, Play, Square, X } from "lucide-react";
 import icon from "../../../assets/icon.png";
 import type { OverlayAppearance } from "../../lib/overlayAppearance";
-import { shouldShowTopPillRunControls } from "./topPillControls";
+import { shouldShowTopPillRunControls, shouldShowTopPillStopControl } from "./topPillControls";
 
 interface TopPillProps {
     expanded: boolean;
@@ -27,6 +27,7 @@ export default function TopPill({
     onStop,
 }: TopPillProps) {
     const showRunControls = shouldShowTopPillRunControls(expanded, Boolean(onPauseToggle || onStop));
+    const showStopControl = shouldShowTopPillStopControl(isProcessing, Boolean(onStop));
 
     return (
         <div className="flex justify-center mt-2 select-none z-50">
@@ -116,7 +117,7 @@ export default function TopPill({
                     </button>
                 )}
 
-                {showRunControls && onStop && (
+                {showRunControls && showStopControl && onStop && (
                     <button
                         onClick={onStop}
                         aria-label={isProcessing ? "Stop current answer" : "Stop current action"}

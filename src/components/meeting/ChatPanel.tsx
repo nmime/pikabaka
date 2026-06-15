@@ -436,7 +436,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       />
       <div
         ref={scrollContainerRef}
-        className="flex-1 min-h-[112px] overflow-y-auto px-4 py-3.5 space-y-2.5 no-drag"
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 space-y-2.5 no-drag"
         style={{ scrollbarWidth: 'none' }}
       >
         {messages.map((msg) => (
