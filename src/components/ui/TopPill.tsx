@@ -1,4 +1,4 @@
-import { ChevronUp, ChevronDown, Pause, Play, Square, GripHorizontal, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Pause, Play, Square, X } from "lucide-react";
 import icon from "../../../assets/icon.png";
 import type { OverlayAppearance } from "../../lib/overlayAppearance";
 import { shouldShowTopPillRunControls } from "./topPillControls";
@@ -72,7 +72,7 @@ export default function TopPill({
                     className={`
             flex items-center gap-2
             group
-            px-4 py-1.5
+            px-2 min-[420px]:px-4 py-1.5
             rounded-full
             backdrop-blur-md
             overlay-chip-surface
@@ -91,19 +91,8 @@ export default function TopPill({
                             <ChevronDown className="w-3.5 h-3.5" />
                         )}
                     </span>
-                    <span className="tracking-wide opacity-80 group-hover:opacity-100">{expanded ? "Hide" : "Show"}</span>
+                    <span className="hidden min-[360px]:inline tracking-wide opacity-80 group-hover:opacity-100">{expanded ? "Hide" : "Show"}</span>
                 </button>
-
-                {showRunControls && (
-                    <div
-                        className="draggable-area hidden min-[460px]:flex items-center gap-1 px-2 overlay-text-muted"
-                        aria-label="Drag Pika window"
-                        title="Drag Pika window"
-                    >
-                        <GripHorizontal className="w-4 h-4" />
-                        <span className="text-[10px] uppercase tracking-[0.12em]">Drag</span>
-                    </div>
-                )}
 
                 {showRunControls && onPauseToggle && (
                     <button
@@ -111,7 +100,7 @@ export default function TopPill({
                         aria-label={isPaused ? "Resume meeting" : "Pause meeting"}
                         aria-pressed={isPaused}
                         className={`
-              no-drag h-8 px-3
+              no-drag h-8 w-8 min-[620px]:w-auto min-[620px]:px-3
               rounded-full
               overlay-icon-surface overlay-icon-surface-hover
               overlay-text-primary
@@ -123,7 +112,7 @@ export default function TopPill({
                         style={appearance.iconStyle}
                     >
                         {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                        <span className="hidden min-[390px]:inline">{isPaused ? "Resume" : "Pause"}</span>
+                        <span className="hidden min-[620px]:inline">{isPaused ? "Resume" : "Pause"}</span>
                     </button>
                 )}
 
@@ -132,7 +121,7 @@ export default function TopPill({
                         onClick={onStop}
                         aria-label={isProcessing ? "Stop current answer" : "Stop current action"}
                         className={`
-              no-drag h-8 px-3
+              no-drag h-8 w-8 min-[620px]:w-auto min-[620px]:px-3
               rounded-full
               overlay-icon-surface
               overlay-text-primary
@@ -144,7 +133,7 @@ export default function TopPill({
                         style={appearance.iconStyle}
                     >
                         <Square className="w-3.5 h-3.5" />
-                        <span className="hidden min-[390px]:inline">Stop</span>
+                        <span className="hidden min-[620px]:inline">Stop</span>
                     </button>
                 )}
 

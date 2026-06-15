@@ -6,8 +6,8 @@ export const DEFAULT_TRANSCRIPT_SPLIT = 28;
 export const MIN_TRANSCRIPT_SPLIT = 20;
 export const MAX_TRANSCRIPT_SPLIT = 65;
 
-export const MIN_TRANSCRIPT_PANE_PX = 96;
-export const MIN_CHAT_PANE_PX = 360;
+export const MIN_TRANSCRIPT_PANE_PX = 84;
+export const MIN_CHAT_PANE_PX = 260;
 export const SPLITTER_THICKNESS_PX = 6;
 
 export interface SplitterStorageLike {

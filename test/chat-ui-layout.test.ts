@@ -70,13 +70,14 @@ t.test('small content heights keep at least the minimum transcript pane and give
   t.end();
 });
 
-t.test('large content heights reserve the minimum chat pane', (t) => {
+t.test('large content heights reserve at least the compact chat pane minimum', (t) => {
   const height = 900;
   const layout = calculateSplitterBounds(height, MAX_TRANSCRIPT_SPLIT);
+  const requestedMax = ((height - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / height) * 100;
 
-  t.equal(layout.maxTranscriptSplit, ((height - SPLITTER_THICKNESS_PX - MIN_CHAT_PANE_PX) / height) * 100);
+  t.equal(layout.maxTranscriptSplit, Math.min(MAX_TRANSCRIPT_SPLIT, requestedMax));
   t.equal(layout.safeSplitterPosition, layout.maxTranscriptSplit);
-  t.equal(layout.chatPanePx, MIN_CHAT_PANE_PX);
+  t.ok(layout.chatPanePx >= MIN_CHAT_PANE_PX, 'chat pane gets at least the compact minimum height');
   t.ok(layout.transcriptPanePx > MIN_TRANSCRIPT_PANE_PX);
   t.end();
 });
