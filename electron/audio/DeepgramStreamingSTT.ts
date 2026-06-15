@@ -17,6 +17,35 @@ const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 const KEEPALIVE_INTERVAL_MS = 5000;
 
+const DEEPGRAM_LISTEN_BASE_URL = 'wss://api.deepgram.com/v1/listen';
+
+export function buildDeepgramListenUrl(options: {
+    sampleRate: number;
+    channels: number;
+    languageCode?: string;
+}): string {
+    const params = new URLSearchParams({
+        model: 'nova-3',
+        encoding: 'linear16',
+        sample_rate: String(options.sampleRate),
+        channels: String(options.channels),
+        smart_format: 'true',
+        interim_results: 'true',
+        keepalive: 'true',
+    });
+
+    // Deepgram's realtime endpoint currently rejects `language=multi` and
+    // `detect_language=true` with HTTP 400 during the WebSocket handshake.
+    // For Pika's `auto` recognition mode, omit language params entirely so
+    // the stream opens and transcripts can flow. Explicit language selections
+    // still send the concrete ISO-639 code.
+    if (options.languageCode) {
+        params.set('language', options.languageCode);
+    }
+
+    return `${DEEPGRAM_LISTEN_BASE_URL}?${params.toString()}`;
+}
+
 export class DeepgramStreamingSTT extends EventEmitter {
     private apiKey: string;
     private ws: WebSocket | null = null;
@@ -151,20 +180,11 @@ export class DeepgramStreamingSTT extends EventEmitter {
         if (this.isConnecting) return;
         this.isConnecting = true;
 
-        const languageParam = this.languageCode
-            ? `&language=${this.languageCode}`
-            : `&language=multi&detect_language=true`;
-
-        const url =
-            `wss://api.deepgram.com/v1/listen` +
-            `?model=nova-3` +
-            `&encoding=linear16` +
-            `&sample_rate=${this.sampleRate}` +
-            `&channels=${this.numChannels}` +
-            languageParam +
-            `&smart_format=true` +
-            `&interim_results=true` +
-            `&keepalive=true`;
+        const url = buildDeepgramListenUrl({
+            sampleRate: this.sampleRate,
+            channels: this.numChannels,
+            languageCode: this.languageCode,
+        });
 
         console.log(`[DeepgramStreaming] Connecting (rate=${this.sampleRate}, ch=${this.numChannels})...`);
 
