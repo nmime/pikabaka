@@ -20,6 +20,8 @@ function safeError(error: unknown): string {
 export function registerConfigBackupHandlers(): void {
   safeHandle('config-backup:preview-export', async (_, clientPreferences?: Record<string, unknown>) => manager().buildPreview(clientPreferences));
 
+  safeHandle('config-backup:get-locations', async () => manager().getConfigLocations());
+
   safeHandle('config-backup:create-backup', async () => {
     try {
       return { success: true, backup: manager().createBackup('manual') };

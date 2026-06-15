@@ -14,6 +14,7 @@ export interface ConfigExportMetadata {
   platform: NodeJS.Platform;
   includesSecrets: boolean;
   domains: ConfigDomain[];
+  configLocations: string[];
 }
 
 export interface PikaConfigExport {
@@ -24,6 +25,7 @@ export interface PikaConfigExport {
 export interface ConfigBackupResult {
   backupDir: string;
   files: Partial<Record<ConfigDomain, string>>;
+  configLocations: string[];
 }
 
 export interface ConfigImportResult {
@@ -44,6 +46,10 @@ interface ConfigBackupManagerOptions {
   settingsPath?: string;
   credentialsPath?: string;
   backupRoot?: string;
+  homeDir?: string;
+  configDir?: string;
+  additionalConfigLocationPaths?: string[];
+  platform?: NodeJS.Platform;
 }
 
 interface DomainFile {
@@ -60,6 +66,10 @@ export class ConfigBackupManager {
   private readonly settingsPath: string;
   private readonly credentialsPath: string;
   private readonly backupRoot: string;
+  private readonly homeDir: string;
+  private readonly configDir: string;
+  private readonly additionalConfigLocationPaths: string[];
+  private readonly platform: NodeJS.Platform;
 
   constructor(options: ConfigBackupManagerOptions) {
     this.userDataDir = options.userDataDir;
@@ -67,6 +77,10 @@ export class ConfigBackupManager {
     this.settingsPath = options.settingsPath || getSettingsJsonPath();
     this.credentialsPath = options.credentialsPath || getCredentialsJsonPath();
     this.backupRoot = options.backupRoot || path.join(this.userDataDir, 'config-backups');
+    this.homeDir = options.homeDir || os.homedir();
+    this.configDir = options.configDir || path.dirname(this.settingsPath);
+    this.additionalConfigLocationPaths = options.additionalConfigLocationPaths || [];
+    this.platform = options.platform || process.platform;
   }
 
   public buildExport(clientPreferences?: Record<string, unknown>): PikaConfigExport {
@@ -144,6 +158,25 @@ export class ConfigBackupManager {
     return { success: true, backup, importedDomains };
   }
 
+  public getConfigLocations(): string[] {
+    const candidates = this.configLocationCandidates();
+    const seenKeys = new Set<string>();
+    const seenLabels = new Set<string>();
+    const locations: string[] = [];
+
+    for (const candidate of candidates) {
+      const label = this.canonicalConfigLocationLabel(candidate);
+      const labelKey = this.platform === 'darwin' ? label.toLowerCase() : label;
+      const identityKey = this.configLocationIdentity(candidate);
+      if ((identityKey && seenKeys.has(identityKey)) || seenLabels.has(labelKey)) continue;
+      if (identityKey) seenKeys.add(identityKey);
+      seenLabels.add(labelKey);
+      locations.push(label);
+    }
+
+    return locations;
+  }
+
   public createBackup(label = 'manual'): ConfigBackupResult {
     const safeLabel = label.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'backup';
     const backupDir = path.join(this.backupRoot, `${safeLabel}-${this.timestampForPath()}`);
@@ -161,10 +194,11 @@ export class ConfigBackupManager {
       createdAt: new Date().toISOString(),
       appVersion: this.appVersion,
       domains: Object.keys(files),
+      configLocations: this.getConfigLocations(),
       files: Object.fromEntries(Object.entries(files).map(([domain, file]) => [domain, path.basename(file as string)])),
     };
     this.atomicWriteJson(path.join(backupDir, 'manifest.json'), manifest);
-    return { backupDir, files };
+    return { backupDir, files, configLocations: manifest.configLocations };
   }
 
   public validateImport(input: unknown): PikaConfigExport {
@@ -214,10 +248,75 @@ export class ConfigBackupManager {
       schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION,
       appVersion: this.appVersion,
       exportedAt: new Date().toISOString(),
-      platform: process.platform,
+      platform: this.platform,
       includesSecrets,
       domains,
+      configLocations: this.getConfigLocations(),
     };
+  }
+
+  private configLocationCandidates(): string[] {
+    const candidates = [
+      this.configDir,
+      path.dirname(this.settingsPath),
+      path.dirname(this.credentialsPath),
+      this.userDataDir,
+      ...this.darwinApplicationSupportAliases(this.userDataDir),
+      ...this.additionalConfigLocationPaths,
+    ];
+    return candidates.filter((candidate) => Boolean(candidate));
+  }
+
+  private darwinApplicationSupportAliases(location: string): string[] {
+    if (this.platform !== 'darwin') return [];
+    const appSupportDir = path.join(this.homeDir, 'Library', 'Application Support');
+    if (!this.pathsEqual(path.dirname(location), appSupportDir)) return [];
+    if (!/^pika$/i.test(path.basename(location))) return [];
+    return [path.join(appSupportDir, 'Pika'), path.join(appSupportDir, 'pika')];
+  }
+
+  private canonicalConfigLocationLabel(location: string): string {
+    const normalized = path.resolve(location);
+    const configDir = path.join(this.homeDir, '.config', 'pika');
+    if (this.pathsEqual(normalized, configDir)) return '~/.config/pika';
+
+    if (this.platform === 'darwin') {
+      const appSupportDir = path.join(this.homeDir, 'Library', 'Application Support');
+      if (this.pathsEqual(path.dirname(normalized), appSupportDir) && /^pika$/i.test(path.basename(normalized))) {
+        return '~/Library/Application Support/Pika';
+      }
+    }
+
+    return this.toHomeRelative(normalized);
+  }
+
+  private configLocationIdentity(location: string): string | null {
+    try {
+      const stat = fs.statSync(location);
+      return `stat:${stat.dev}:${stat.ino}`;
+    } catch {
+      try {
+        return `realpath:${fs.realpathSync.native(location)}`;
+      } catch {
+        const normalized = path.resolve(location);
+        return this.platform === 'darwin' ? `path:${normalized.toLowerCase()}` : `path:${normalized}`;
+      }
+    }
+  }
+
+  private pathsEqual(left: string, right: string): boolean {
+    const normalizedLeft = path.resolve(left);
+    const normalizedRight = path.resolve(right);
+    if (this.platform === 'darwin') return normalizedLeft.toLowerCase() === normalizedRight.toLowerCase();
+    return normalizedLeft === normalizedRight;
+  }
+
+  private toHomeRelative(location: string): string {
+    const relative = path.relative(this.homeDir, location);
+    if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+      return `~/${relative.split(path.sep).join('/')}`;
+    }
+    return location;
   }
 
   private readJsonFile(filePath: string, domain: ConfigDomain): unknown {
