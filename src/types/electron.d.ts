@@ -4,8 +4,8 @@ type CompanionStatus = { running: boolean; port: number | null; urls: string[]; 
 type CompanionCommand = { id: string; type: 'ask' | 'clarify' | 'recap' | 'brainstorm' | 'what_to_answer' | 'follow_up' | 'code_hint' | 'attach-file' | 'reset_cancel' | 'toggle_visibility' | 'mouse_passthrough' | 'screenshot' | 'selective_screenshot' | 'ping'; payload?: any; receivedAt: number; deviceId?: string }
 
 
-type ConfigBackupMetadata = { schemaVersion: number; appVersion: string; exportedAt: string; platform: string; includesSecrets: boolean; domains: string[] }
-type ConfigBackupResult = { backupDir: string; files: Record<string, string> }
+type ConfigBackupMetadata = { schemaVersion: number; appVersion: string; exportedAt: string; platform: string; includesSecrets: boolean; domains: string[]; configLocations: string[] }
+type ConfigBackupResult = { backupDir: string; files: Record<string, string>; configLocations: string[] }
 type ConfigExportPreview = { metadata: ConfigBackupMetadata; data: Record<string, unknown>; warnings: string[] }
 
 export interface ElectronAPI {
@@ -85,6 +85,7 @@ export interface ElectronAPI {
   getCurrentLlmConfig: () => Promise<{ provider: "ollama" | "gemini" | "custom" | "openai-compatible"; model: string; isOllama: boolean }>
   getAvailableOllamaModels: () => Promise<string[]>
   configPreviewExport: (clientPreferences?: Record<string, unknown>) => Promise<ConfigExportPreview>
+    configGetLocations: () => Promise<string[]>
   configExportAll: (clientPreferences?: Record<string, unknown>) => Promise<{ success: boolean; cancelled?: boolean; filePath?: string; metadata?: ConfigBackupMetadata; error?: string }>
   configImportAll: () => Promise<{ success: boolean; cancelled?: boolean; backup?: ConfigBackupResult; importedDomains?: string[]; clientPreferences?: Record<string, unknown>; error?: string }>
   configCreateBackup: () => Promise<{ success: boolean; backup?: ConfigBackupResult; error?: string }>

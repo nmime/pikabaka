@@ -14,6 +14,7 @@ export function settingsChannels() {
       }
     },
     configPreviewExport: (clientPreferences?: Record<string, unknown>) => ipcRenderer.invoke('config-backup:preview-export', clientPreferences),
+    configGetLocations: () => ipcRenderer.invoke('config-backup:get-locations'),
     configExportAll: (clientPreferences?: Record<string, unknown>) => ipcRenderer.invoke('config-backup:export-all', clientPreferences),
     configImportAll: () => ipcRenderer.invoke('config-backup:import-all'),
     configCreateBackup: () => ipcRenderer.invoke('config-backup:create-backup'),

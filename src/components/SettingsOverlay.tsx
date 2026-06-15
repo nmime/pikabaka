@@ -363,6 +363,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
     const [showMoreShortcuts, setShowMoreShortcuts] = useState<boolean>(false);
 
     const [configPreview, setConfigPreview] = useState<any | null>(null);
+    const [configLocations, setConfigLocations] = useState<string[]>([]);
     const [configOperationStatus, setConfigOperationStatus] = useState<string>('');
     const [isConfigOperationRunning, setIsConfigOperationRunning] = useState(false);
 
@@ -429,6 +430,8 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
         try {
             const preview = await window.electronAPI?.configPreviewExport?.(collectClientPreferences());
             setConfigPreview(preview || null);
+            const locations = preview?.metadata?.configLocations || await window.electronAPI?.configGetLocations?.();
+            setConfigLocations(Array.isArray(locations) ? locations : []);
         } catch (error) {
             setConfigOperationStatus(error instanceof Error ? error.message : String(error));
         }
@@ -440,6 +443,8 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
         try {
             const result = await window.electronAPI?.configCreateBackup?.();
             if (result?.success) {
+                const locations = result.backup?.configLocations;
+                if (Array.isArray(locations)) setConfigLocations(locations);
                 setConfigOperationStatus(`Backup created: ${result.backup?.backupDir || 'done'}`);
                 await loadConfigPreview();
             } else {
@@ -458,6 +463,8 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
         try {
             const result = await window.electronAPI?.configExportAll?.(collectClientPreferences());
             if (result?.success) {
+                const locations = result.metadata?.configLocations;
+                if (Array.isArray(locations)) setConfigLocations(locations);
                 setConfigOperationStatus(`Exported ${result.metadata?.domains?.join(', ') || 'config'} to ${result.filePath}`);
             } else if (result?.cancelled) {
                 setConfigOperationStatus('Export cancelled.');
@@ -3019,6 +3026,18 @@ Core Skills
                                             {configOperationStatus}
                                         </div>
                                     )}
+
+                                    <div className="rounded-xl border border-border-subtle bg-bg-card p-4">
+                                        <h4 className="text-sm font-semibold text-text-primary mb-2">Config locations</h4>
+                                        <p className="text-xs text-text-tertiary mb-3">Pika reports canonical config paths only; duplicate Application Support aliases are hidden.</p>
+                                        <ul className="space-y-1">
+                                            {(configLocations.length ? configLocations : ['~/.config/pika', '~/Library/Application Support/Pika']).map((location) => (
+                                                <li key={location} className="font-mono text-xs text-text-secondary break-all">
+                                                    {location}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
 
                                     <div className="rounded-xl border border-border-subtle bg-bg-card p-4">
                                         <div className="flex items-center justify-between mb-3">

@@ -72,3 +72,49 @@ t.test('import creates backup and writes expected files', (t) => {
   t.equal(JSON.parse(fs.readFileSync(path.join(userDataDir, 'keybinds.json'), 'utf8'))[0].id, 'general:toggle-visibility');
   t.end();
 });
+
+
+t.test('deduplicates darwin Application Support config aliases in reported locations', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pika-config-location-test-'));
+  t.teardown(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const configDir = path.join(root, '.config', 'pika');
+  const appSupportDir = path.join(root, 'Library', 'Application Support');
+  const userDataDir = path.join(appSupportDir, 'Pika');
+  const legacyLowercaseUserDataDir = path.join(appSupportDir, 'pika');
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.mkdirSync(userDataDir, { recursive: true });
+  if (!fs.existsSync(legacyLowercaseUserDataDir)) {
+    fs.symlinkSync(userDataDir, legacyLowercaseUserDataDir, 'dir');
+  }
+
+  const settingsPath = path.join(configDir, 'settings.json');
+  const credentialsPath = path.join(configDir, 'credentials.json');
+  fs.writeFileSync(settingsPath, JSON.stringify({ theme: 'system' }, null, 2));
+  fs.writeFileSync(credentialsPath, JSON.stringify({ geminiApiKey: 'secret' }, null, 2));
+
+  const manager = new ConfigBackupManager({
+    userDataDir,
+    appVersion: 'test-version',
+    settingsPath,
+    credentialsPath,
+    backupRoot: path.join(root, 'backups'),
+    homeDir: root,
+    configDir,
+    additionalConfigLocationPaths: [legacyLowercaseUserDataDir],
+    platform: 'darwin',
+  });
+
+  const locations = manager.getConfigLocations();
+  t.same(locations, ['~/.config/pika', '~/Library/Application Support/Pika']);
+  t.notOk(locations.includes('~/Library/Application Support/pika'));
+
+  const preview = manager.buildPreview();
+  t.same(preview.metadata.configLocations, ['~/.config/pika', '~/Library/Application Support/Pika']);
+
+  const backup = manager.createBackup('manual');
+  t.same(backup.configLocations, ['~/.config/pika', '~/Library/Application Support/Pika']);
+  const manifest = JSON.parse(fs.readFileSync(path.join(backup.backupDir, 'manifest.json'), 'utf8'));
+  t.same(manifest.configLocations, ['~/.config/pika', '~/Library/Application Support/Pika']);
+  t.end();
+});
