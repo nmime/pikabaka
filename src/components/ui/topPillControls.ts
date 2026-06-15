@@ -1,3 +1,3 @@
-export function shouldShowTopPillRunControls(expanded: boolean, hasRunControls: boolean): boolean {
-  return !expanded && hasRunControls;
+export function shouldShowTopPillRunControls(_expanded: boolean, hasRunControls: boolean): boolean {
+  return hasRunControls;
 }
