@@ -367,7 +367,7 @@ export function registerCoreHandlers(appState: AppState): void {
             provider: 'openai-compatible',
             providerName: providerLabel,
             model: compat?.preferredModel || activeModel,
-            message: `Streaming via OpenAI-compatible: ${providerLabel}`
+            message: `Using ${providerLabel}`
           });
         }
 

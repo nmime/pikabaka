@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ShortcutConfig } from '../../hooks/useShortcuts';
 import {
   Pencil,
@@ -24,53 +24,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { NegotiationCoachingCard } from '../../premium';
+import { getFriendlyModelDisplayName, type OpenAICompatibleProviderSummary } from '../../utils/modelUtils';
 
-
-const FRIENDLY_MODEL_NAMES: Record<string, string> = {
-  'gemini-3.1-flash-lite-preview': 'Gemini 3.1 Flash',
-  'gemini-3.1-pro-preview': 'Gemini 3.1 Pro',
-  'llama-3.3-70b-versatile': 'Groq Llama 3.3',
-  'gpt-5.4': 'GPT 5.4',
-  'claude-sonnet-4-6': 'Sonnet 4.6',
-};
-
-const MODEL_PROVIDER_WORDS: Record<string, string> = {
-  claude: 'Claude',
-  gemini: 'Gemini',
-  groq: 'Groq',
-  llama: 'Llama',
-  ollama: 'Ollama',
-  openai: 'OpenAI',
-};
-
-const getFriendlyModelName = (model: string): string => {
-  if (!model) return 'AI model';
-  if (FRIENDLY_MODEL_NAMES[model]) return FRIENDLY_MODEL_NAMES[model];
-
-  const cleaned = model
-    .replace(/^ollama[-_:]/i, '')
-    .replace(/[:/_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!cleaned) return 'AI model';
-
-  return cleaned
-    .split(' ')
-    .map((part) => {
-      const lower = part.toLowerCase();
-      if (lower === 'gpt') return 'GPT';
-      if (MODEL_PROVIDER_WORDS[lower]) return MODEL_PROVIDER_WORDS[lower];
-      if (/^\d+(?:\.\d+)*[a-z]?$/i.test(part)) return part.toUpperCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(' ')
-    .replace(/\bFlash Lite Preview\b/i, 'Flash Lite')
-    .replace(/\bPro Preview\b/i, 'Pro')
-    .replace(/\bPreview\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
 
 interface Message {
   id: string;
@@ -169,7 +124,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   const codeTheme = isLightTheme ? oneLight : vscDarkPlus;
   const codeLineNumberColor = isLightTheme ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.2)';
-  const modelDisplayName = getFriendlyModelName(currentModel);
+  const [openAICompatibleProviders, setOpenAICompatibleProviders] = useState<OpenAICompatibleProviderSummary[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadProviders = async () => {
+      try {
+        const providers = await window.electronAPI?.getOpenAICompatibleProviders?.();
+        if (!cancelled && providers) setOpenAICompatibleProviders(providers);
+      } catch {
+        if (!cancelled) setOpenAICompatibleProviders([]);
+      }
+    };
+    loadProviders();
+    const unsubscribe = window.electronAPI?.onOpenAICompatibleProvidersChanged?.(() => { void loadProviders(); });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
+
+  const modelDisplayName = getFriendlyModelDisplayName(currentModel, openAICompatibleProviders);
   const subtleSurfaceClass = 'overlay-subtle-surface';
   const codeBlockClass = 'overlay-code-block-surface';
   const codeHeaderClass = 'overlay-code-header-surface';
