@@ -82,11 +82,7 @@ interface ChatPanelProps {
   handleAnswerNow: () => void;
   handleManualSubmit: () => void;
   handlePasteImage: () => void;
-  handleStop?: () => void;
   isPaused?: boolean;
-  handleTogglePause?: () => void;
-  handleCollapse?: () => void;
-  handleOpenLauncher?: () => void;
   isManualRecording: boolean;
   manualTranscript: string;
   voiceInput: string;
@@ -121,11 +117,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   handleAnswerNow,
   handleManualSubmit,
   handlePasteImage,
-  handleStop = () => {},
   isPaused = false,
-  handleTogglePause = () => {},
-  handleCollapse,
-  handleOpenLauncher,
   isManualRecording,
   manualTranscript,
   voiceInput,
@@ -441,10 +433,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatPanelControlBar
         isProcessing={isProcessing}
         isPaused={isPaused}
-        onTogglePause={handleTogglePause}
-        onStop={handleStop}
-        onToggleCollapse={handleCollapse}
-        onOpenLauncher={handleOpenLauncher}
       />
       <div
         ref={scrollContainerRef}

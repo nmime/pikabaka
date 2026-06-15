@@ -112,7 +112,7 @@ test('footer and action layout classes keep adaptive wrap/grid/min-height behavi
   t.match(CHAT_PANEL_ACTION_BAR_CLASS, /\bgrid\b/, 'action bar starts as a grid on narrow widths');
   t.match(CHAT_PANEL_ACTION_BAR_CLASS, /min-\[520px\]:flex/, 'action bar switches to flex at larger modal widths');
   t.match(CHAT_PANEL_ACTION_BAR_CLASS, /flex-wrap/, 'action bar can wrap actions instead of overflowing');
-  t.match(CHAT_PANEL_FOOTER_CLASS, /min-h-\[118px\]/, 'footer reserves a stable minimum height');
+  t.match(CHAT_PANEL_FOOTER_CLASS, /min-h-\[96px\]/, 'footer reserves a stable compact minimum height');
   t.match(CHAT_PANEL_FOOTER_CONTROLS_CLASS, /flex-wrap/, 'footer controls wrap on narrow widths');
   t.match(CHAT_PANEL_FOOTER_CONTROLS_CLASS, /min-w-0/, 'footer controls may shrink instead of forcing overflow');
   t.match(CHAT_PANEL_INPUT_BASE_CLASS, /min-h-\[42px\]/, 'input keeps a tappable minimum height');
@@ -170,51 +170,23 @@ test('chat input renders and submits on Enter', (t) => {
 });
 
 
-test('chat control bar exposes draggable handle plus no-drag pause and stop controls', (t) => {
-  let paused = 0;
-  let stopped = 0;
-  let collapsed = 0;
-  let home = 0;
+test('chat control bar is only a draggable AI chat pane header', (t) => {
+  let called = 0;
   const tree = ChatPanelControlBar({
     isProcessing: true,
     isPaused: false,
-    onTogglePause: () => { paused += 1; },
-    onStop: () => { stopped += 1; },
-    onToggleCollapse: () => { collapsed += 1; },
-    onOpenLauncher: () => { home += 1; },
+    onTogglePause: () => { called += 1; },
+    onStop: () => { called += 1; },
   });
 
   const root = collectElements(tree, (element) => element.props.className === CHAT_PANEL_CONTROL_BAR_CLASS)[0];
-  t.ok(String(root.props.className).includes('draggable-area'), 'control bar is a drag region');
+  t.ok(String(root.props.className).includes('draggable-area'), 'AI chat header is a drag region');
 
-  const dragHandle = collectElements(tree, (element) => element.props['aria-label'] === 'Drag chat window')[0];
-  t.ok(String(dragHandle.props.className).includes(CHAT_PANEL_DRAG_HANDLE_CLASS), 'explicit drag handle is rendered');
+  const dragHandle = collectElements(tree, (element) => element.props['aria-label'] === 'Drag AI chat pane')[0];
+  t.ok(String(dragHandle.props.className).includes(CHAT_PANEL_DRAG_HANDLE_CLASS), 'explicit AI chat drag handle is rendered');
 
   const buttons = collectElements(tree, (element) => element.type === 'button');
-  t.equal(buttons.length, 4, 'pause, stop, hide, and home buttons render');
-  buttons.forEach((button) => t.match(String(button.props.className), /no-drag/, 'interactive control is not draggable'));
-
-  buttons[0].props.onClick();
-  buttons[1].props.onClick();
-  buttons[2].props.onClick();
-  buttons[3].props.onClick();
-  t.equal(paused, 1);
-  t.equal(stopped, 1);
-  t.equal(collapsed, 1);
-  t.equal(home, 1);
-  t.end();
-});
-
-
-test('chat control bar owns expanded-state run controls', (t) => {
-  const tree = ChatPanelControlBar({
-    isProcessing: false,
-    isPaused: false,
-    onTogglePause: () => {},
-    onStop: () => {},
-  });
-  const buttons = collectElements(tree, (element) => element.type === 'button');
-  t.equal(buttons.length, 2, 'expanded chat header has exactly Pause and Stop run controls');
-  t.same(buttons.map((button) => button.props['aria-label']), ['Pause meeting listening', 'Stop and clear chat']);
+  t.equal(buttons.length, 0, 'AI chat header does not duplicate top-level Pause/Stop buttons');
+  t.equal(called, 0, 'duplicate run-control callbacks are not wired in the pane header');
   t.end();
 });
