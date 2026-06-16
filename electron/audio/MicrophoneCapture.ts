@@ -81,15 +81,11 @@ export class MicrophoneCapture extends EventEmitter {
                     return;
                 }
                 if (chunk && chunk.length > 0) {
-                    // Debug: log occasionally
-                    if (Math.random() < 0.05) {
-                        console.log(`[MicrophoneCapture] Emitting chunk: ${chunk.length} bytes to JS`);
-                    }
                     this.emit('data', Buffer.from(chunk));
                 }
             }, (err: Error | null, _ended: boolean) => {
-                // Speech-ended callback from Rust SilenceSuppressor.
-                // _ended is always `true` when fired (Rust only invokes on speech→silence transition).
+                // Optional speech-ended callback. Continuous microphone streaming usually
+                // relies on STT final events instead of local VAD transitions.
                 if (err) {
                     console.error('[MicrophoneCapture] Speech ended callback error:', err);
                     return;

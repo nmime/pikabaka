@@ -32,12 +32,12 @@ export const DEFAULT_TRANSCRIPT_ASSEMBLER_PROFILE: TranscriptAssemblerProfile = 
 
 const TRANSCRIPT_ASSEMBLER_THRESHOLDS: Record<TranscriptAssemblerProfile, TranscriptAssemblerThresholds> = {
   sentence_bias: {
-    maxSilenceBeforeNewTurnMs: 3200,
-    sentenceFlushDelayMs: 1350,
-    fragmentFlushDelayMs: 2600,
-    speechEndedSentenceFlushMs: 260,
-    speechEndedFragmentFlushMs: 1100,
-    minWordsBeforeSentenceFlush: 18,
+    maxSilenceBeforeNewTurnMs: 2200,
+    sentenceFlushDelayMs: 650,
+    fragmentFlushDelayMs: 950,
+    speechEndedSentenceFlushMs: 140,
+    speechEndedFragmentFlushMs: 420,
+    minWordsBeforeSentenceFlush: 8,
     maxTurnDurationMs: 0,
   },
   low_latency: {
@@ -175,9 +175,12 @@ export function bufferFinalTranscriptChunk(
 
   const wordCount = buffer.text.split(/\s+/).length;
   const isSentenceComplete = endsSentence(appState, buffer.text) && wordCount >= thresholds.minWordsBeforeSentenceFlush;
-  const flushDelayMs = isSentenceComplete
+  const baseFlushDelayMs = isSentenceComplete
     ? thresholds.sentenceFlushDelayMs
     : thresholds.fragmentFlushDelayMs;
+  const flushDelayMs = speaker === 'user'
+    ? Math.min(baseFlushDelayMs, isSentenceComplete ? 180 : 450)
+    : baseFlushDelayMs;
   scheduleBufferedTranscriptFlush(appState, speaker, flushDelayMs);
 }
 

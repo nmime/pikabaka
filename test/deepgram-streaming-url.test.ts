@@ -9,6 +9,8 @@ t.test('Deepgram auto language uses realtime multilingual mode without detect_la
   t.equal(url.searchParams.get('encoding'), 'linear16');
   t.equal(url.searchParams.get('sample_rate'), '48000');
   t.equal(url.searchParams.get('channels'), '1');
+  t.equal(url.searchParams.get('interim_results'), 'true', 'interim transcripts should stream while the user is speaking');
+  t.equal(url.searchParams.get('endpointing'), '300', 'short endpointing keeps final transcript latency low');
   t.equal(url.searchParams.get('language'), 'multi', 'auto mode must enable multilingual English/Russian recognition');
   t.equal(url.searchParams.has('detect_language'), false, 'auto mode must not send detect_language=true');
   t.end();
