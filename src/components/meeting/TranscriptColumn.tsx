@@ -7,6 +7,8 @@ interface TranscriptColumnProps {
     transcriptSegments: TranscriptSegment[];
     isInterviewerSpeaking: boolean;
     currentInterviewerPartial: string;
+    isUserSpeaking: boolean;
+    currentUserPartial: string;
     transcriptDisplayMode: TranscriptDisplayMode;
     showTranscript: boolean;
     handleTranslateTranscriptSegment: (segment: TranscriptSegment) => void;
@@ -22,6 +24,8 @@ const TranscriptColumn: React.FC<TranscriptColumnProps> = ({
     transcriptSegments,
     isInterviewerSpeaking,
     currentInterviewerPartial,
+    isUserSpeaking,
+    currentUserPartial,
     transcriptDisplayMode,
     showTranscript,
     handleTranslateTranscriptSegment,
@@ -37,6 +41,8 @@ const TranscriptColumn: React.FC<TranscriptColumnProps> = ({
             transcriptSegments={transcriptSegments}
             isInterviewerSpeaking={isInterviewerSpeaking}
             currentInterviewerPartial={currentInterviewerPartial}
+            isUserSpeaking={isUserSpeaking}
+            currentUserPartial={currentUserPartial}
             transcriptDisplayMode={transcriptDisplayMode}
             showTranscript={showTranscript}
             handleTranslateTranscriptSegment={handleTranslateTranscriptSegment}

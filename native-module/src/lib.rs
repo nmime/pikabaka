@@ -285,7 +285,7 @@ impl MicrophoneCapture {
         on_speech_ended: Option<ThreadsafeFunction<bool>>,
     ) -> napi::Result<()> {
         let tsfn = callback;
-        let speech_ended_tsfn = on_speech_ended;
+        let _speech_ended_tsfn = on_speech_ended;
 
         self.stop_signal.store(false, Ordering::SeqCst);
         let stop_signal = self.stop_signal.clone();
@@ -325,19 +325,16 @@ impl MicrophoneCapture {
             .take_consumer()
             .ok_or_else(|| napi::Error::from_reason("Failed to get consumer"))?;
 
-        // DSP thread with silence suppression + WebRTC VAD
+        // Microphone STT must receive a continuous stream. The old WebRTC VAD gate
+        // dropped quiet/short phonemes and made Deepgram endpointing slow, which caused
+        // missed user words. System audio still uses suppression; microphone does not.
         self.capture_thread = Some(thread::spawn(move || {
-            let mut suppressor = SilenceSuppressor::new(SilenceSuppressionConfig {
-                native_sample_rate: native_rate,
-                ..SilenceSuppressionConfig::for_microphone()
-            });
-
             // 20ms chunks at native rate
             let chunk_size = (native_rate as usize / 1000) * 20;
             let mut frame_buffer: Vec<i16> = Vec::with_capacity(chunk_size * 4);
             let mut raw_batch: Vec<f32> = Vec::with_capacity(4096);
 
-            println!("[MicrophoneCapture] DSP thread started (VAD + suppression active, rate={}Hz, chunk={})", native_rate, chunk_size);
+            println!("[MicrophoneCapture] DSP thread started (continuous STT stream, rate={}Hz, chunk={})", native_rate, chunk_size);
 
             loop {
                 if stop_signal.load(Ordering::Relaxed) {
@@ -358,37 +355,15 @@ impl MicrophoneCapture {
                     raw_batch.clear();
                 }
 
-                // 3. Process in 20ms chunks through the two-stage gate
+                // 3. Send every 20ms chunk. Deepgram handles endpointing server-side;
+                // suppressing mic chunks locally loses speech and delays transcript output.
                 while frame_buffer.len() >= chunk_size {
                     let frame: Vec<i16> = frame_buffer.drain(0..chunk_size).collect();
-
-                    let (action, speech_ended) = suppressor.process(&frame);
-
-                    match action {
-                        FrameAction::Send(data) => {
-                            let bytes = i16_slice_to_le_bytes(&data);
-                            tsfn.call(
-                                Ok(Buffer::from(bytes)),
-                                ThreadsafeFunctionCallMode::NonBlocking,
-                            );
-                        }
-                        FrameAction::SendSilence => {
-                            let silence = vec![0u8; chunk_size * 2];
-                            tsfn.call(
-                                Ok(Buffer::from(silence)),
-                                ThreadsafeFunctionCallMode::NonBlocking,
-                            );
-                        }
-                        FrameAction::Suppress => {
-                            // Do nothing
-                        }
-                    }
-
-                    if speech_ended {
-                        if let Some(ref se_tsfn) = speech_ended_tsfn {
-                            se_tsfn.call(Ok(true), ThreadsafeFunctionCallMode::NonBlocking);
-                        }
-                    }
+                    let bytes = i16_slice_to_le_bytes(&frame);
+                    tsfn.call(
+                        Ok(Buffer::from(bytes)),
+                        ThreadsafeFunctionCallMode::NonBlocking,
+                    );
                 }
 
                 // 4. Short sleep

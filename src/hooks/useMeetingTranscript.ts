@@ -5,6 +5,8 @@ export function useMeetingTranscript() {
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false);
   const [currentInterviewerPartial, setCurrentInterviewerPartial] = useState('');
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [currentUserPartial, setCurrentUserPartial] = useState('');
   const [transcriptDisplayMode, setTranscriptDisplayMode] = useState<TranscriptDisplayMode>('original');
   const [showTranscript, setShowTranscript] = useState(() => {
     const stored = localStorage.getItem('pika_interviewer_transcript');
@@ -41,7 +43,10 @@ export function useMeetingTranscript() {
 
     return window.electronAPI.onNativeAudioTranscript((transcript) => {
       if (transcript.speaker === 'user') {
+        setIsUserSpeaking(!transcript.final);
+
         if (transcript.final) {
+          setCurrentUserPartial('');
           const normalizedSegmentId =
             transcript.segmentId ||
             `user_${transcript.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -64,6 +69,8 @@ export function useMeetingTranscript() {
           if (transcript.displayMode) {
             setTranscriptDisplayMode(transcript.displayMode);
           }
+        } else {
+          setCurrentUserPartial(transcript.text);
         }
         return;
       }
@@ -162,6 +169,8 @@ export function useMeetingTranscript() {
     transcriptSegments,
     isInterviewerSpeaking,
     currentInterviewerPartial,
+    isUserSpeaking,
+    currentUserPartial,
     transcriptDisplayMode,
     setTranscriptDisplayMode,
     showTranscript,

@@ -31,6 +31,7 @@ export function buildDeepgramListenUrl(options: {
         channels: String(options.channels),
         smart_format: 'true',
         interim_results: 'true',
+        endpointing: '300',
         keepalive: 'true',
     });
 
