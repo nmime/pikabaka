@@ -6,6 +6,8 @@ interface TranscriptPanelProps {
     transcriptSegments: TranscriptSegment[];
     isInterviewerSpeaking: boolean;
     currentInterviewerPartial: string;
+    isUserSpeaking: boolean;
+    currentUserPartial: string;
     transcriptDisplayMode: TranscriptDisplayMode;
     showTranscript: boolean;
     handleTranslateTranscriptSegment: (segment: TranscriptSegment) => void;
@@ -23,6 +25,8 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
     transcriptSegments,
     isInterviewerSpeaking,
     currentInterviewerPartial,
+    isUserSpeaking,
+    currentUserPartial,
     transcriptDisplayMode,
     showTranscript,
     handleTranslateTranscriptSegment,
@@ -33,7 +37,9 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
     appearance,
     isLightTheme,
 }) => {
-    const hasTranscriptContent = transcriptSegments.length > 0 || isInterviewerSpeaking;
+    const hasTranscriptContent = transcriptSegments.length > 0 || isInterviewerSpeaking || isUserSpeaking;
+    const partialText = currentUserPartial || currentInterviewerPartial;
+    const partialSpeakerLabel = currentUserPartial ? 'Me' : 'Interviewer';
     const placeholderText = 'Transcript will appear here when meeting audio is detected';
     const statusDetail = showSttErrorDetail && nativeAudioHealth.lastError ? nativeAudioHealth.lastError : null;
     const statusTitle = statusDetail ? `${sttStatus.label} - ${statusDetail}` : sttStatus.label;
@@ -44,9 +50,10 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
                 {showTranscript && hasTranscriptContent ? (
                     <RollingTranscript
                         segments={transcriptSegments}
-                        partialText={isInterviewerSpeaking ? currentInterviewerPartial : undefined}
+                        partialText={partialText || undefined}
                         displayMode={transcriptDisplayMode}
-                        isActive={isInterviewerSpeaking}
+                        isActive={isInterviewerSpeaking || isUserSpeaking}
+                        partialSpeakerLabel={partialSpeakerLabel}
                         surfaceStyle={appearance.transcriptStyle}
                         onTranslateSegment={handleTranslateTranscriptSegment}
                     />
