@@ -165,6 +165,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const quickActionClass = 'overlay-chip-surface overlay-text-interactive hover:overlay-text-primary';
   const inputClass = `${isLightTheme ? 'focus:ring-black/10' : 'focus:ring-white/10'} overlay-input-surface overlay-input-text`;
   const controlSurfaceClass = 'overlay-control-surface overlay-text-interactive';
+  const canSubmitPrompt = inputValue.trim().length > 0 || attachedContext.length > 0;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).catch(console.error);
@@ -328,13 +329,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       );
     }
 
-    if (msg.intent === 'what_to_answer') {
+    if (msg.intent === 'what_to_answer' || msg.intent === 'brainstorm' || msg.intent === 'code_hint') {
       const parts = msg.text.split(/(```[\s\S]*?(?:```|$))/g);
+      const title = msg.intent === 'brainstorm' ? 'Ideas' : msg.intent === 'code_hint' ? 'Code hint' : 'Say this';
 
       return (
         <div className={`rounded-lg p-3 my-1 border ${subtleSurfaceClass}`} style={appearance.subtleStyle}>
           <div className="flex items-center gap-2 mb-2 text-state-success font-medium text-[11px] tracking-[0.02em]">
-            <span>Say this</span>
+            <span>{title}</span>
           </div>
           <div className="text-[14px] leading-relaxed overlay-text-primary">
             {parts.map((part, i) => {
@@ -700,16 +702,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
           <button
             onClick={handleManualSubmit}
-            disabled={!inputValue.trim()}
+            disabled={!canSubmitPrompt}
             className={`
               w-8 h-8 rounded-full flex items-center justify-center shrink-0
               interaction-base interaction-press
-              ${inputValue.trim()
+              ${canSubmitPrompt
                 ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/20 hover:bg-[#0071E3]'
                 : 'overlay-icon-surface overlay-text-muted cursor-not-allowed'
               }
             `}
-            style={inputValue.trim() ? undefined : appearance.iconStyle}
+            style={canSubmitPrompt ? undefined : appearance.iconStyle}
           >
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

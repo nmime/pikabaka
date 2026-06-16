@@ -160,7 +160,7 @@ const TranscriptNotes: React.FC<TranscriptNotesProps> = ({
                                         )}
                                     </div>
                                     <div
-                                        className="rounded-2xl border border-border-subtle px-4 py-3 shadow-sm overlay-transcript-surface"
+                                        className="rounded-2xl px-4 py-3 shadow-sm overlay-transcript-surface"
                                         style={surfaceStyle}
                                     >
                                         <p className="overlay-text-primary text-[13px] leading-[1.55] whitespace-pre-wrap break-words">
@@ -209,7 +209,7 @@ const TranscriptNotes: React.FC<TranscriptNotesProps> = ({
                                     <span className="text-[9px] text-text-tertiary">Live</span>
                                 </div>
                                 <div
-                                    className="rounded-2xl border border-border-subtle/80 px-4 py-3 overlay-transcript-surface"
+                                    className="rounded-2xl px-4 py-3 overlay-transcript-surface"
                                     style={surfaceStyle}
                                 >
                                     <p className="overlay-text-primary text-[13px] leading-[1.55] whitespace-pre-wrap break-words opacity-80">

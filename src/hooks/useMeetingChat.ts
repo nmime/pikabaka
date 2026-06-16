@@ -36,6 +36,34 @@ type KnowledgeContext = {
 
 type AttachedContext = Array<{ path: string; preview: string }>;
 
+const getSuggestedAnswerIntent = (question?: string): string => {
+  const normalized = (question || '').toLowerCase();
+  if (normalized.includes('brainstorm')) return 'brainstorm';
+  if (normalized.includes('code hint')) return 'code_hint';
+  return 'what_to_answer';
+};
+
+const buildAssistantContext = async (chatContext: string): Promise<string | undefined> => {
+  const parts: string[] = [];
+
+  try {
+    const intelligenceContext = await window.electronAPI?.getIntelligenceContext?.();
+    const liveTranscript = intelligenceContext?.context?.trim();
+    if (liveTranscript) {
+      parts.push(`[LIVE INTERVIEW TRANSCRIPT]\n${liveTranscript}`);
+    }
+  } catch (err) {
+    console.warn('[useMeetingChat] failed to read live transcript context:', err);
+  }
+
+  const trimmedChatContext = chatContext.trim();
+  if (trimmedChatContext) {
+    parts.push(`[CHAT PANEL HISTORY]\n${trimmedChatContext.slice(-8000)}`);
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
+};
+
 export function useMeetingChat() {
   const [knowledgeContext, setKnowledgeContext] = useState<KnowledgeContext | null>(null);
   const [attachedContext, setAttachedContext] = useState<AttachedContext>([]);
@@ -53,7 +81,7 @@ export function useMeetingChat() {
     conversationContextRef.current = conversationContext;
   }, [conversationContext]);
 
-  const { messages: chatMessages, sendMessage, status, stop } = useChat({
+  const { messages: chatMessages, status, stop } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
       fetch: electronChatFetch as typeof globalThis.fetch,
@@ -194,28 +222,30 @@ export function useMeetingChat() {
     // ---- Streaming: Gemini Chat (streamGeminiChat / suggested answer) ----
     if (window.electronAPI.onIntelligenceSuggestedAnswerToken) {
       cleanups.push(window.electronAPI.onIntelligenceSuggestedAnswerToken((data) => {
+        const intent = getSuggestedAnswerIntent(data.question);
         setSystemMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last && last.isStreaming && last.intent === 'what_to_answer') {
+          if (last && last.isStreaming && last.intent === intent) {
             const updated = [...prev];
             updated[updated.length - 1] = appendStreamingText(last, data.token);
             return updated;
           }
-          return [...prev, { id: Date.now().toString(), role: 'system', text: data.token, intent: 'what_to_answer', isStreaming: true }];
+          return [...prev, { id: Date.now().toString(), role: 'system', text: data.token, intent, isStreaming: true }];
         });
       }));
     }
     if (window.electronAPI.onIntelligenceSuggestedAnswer) {
       cleanups.push(window.electronAPI.onIntelligenceSuggestedAnswer((data) => {
+        const intent = getSuggestedAnswerIntent(data.question);
         setIsProcessing(false);
         setSystemMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last && last.isStreaming && last.intent === 'what_to_answer') {
+          if (last && last.isStreaming && last.intent === intent) {
             const updated = [...prev];
             updated[updated.length - 1] = { ...last, text: data.answer, isStreaming: false };
             return updated;
           }
-          return [...prev, { id: Date.now().toString(), role: 'system', text: data.answer, intent: 'what_to_answer' }];
+          return [...prev, { id: Date.now().toString(), role: 'system', text: data.answer, intent }];
         });
       }));
     }
@@ -538,10 +568,11 @@ export function useMeetingChat() {
       }
 
       console.log('[submitPrompt] calling streamGeminiChat…');
+      const assistantContext = await buildAssistantContext(conversationContextRef.current);
       await window.electronAPI.streamGeminiChat(
         promptText,
         currentAttachments.length > 0 ? currentAttachments.map((s) => s.path) : undefined,
-        conversationContextRef.current,
+        assistantContext,
         streamOptions
       );
       console.log('[submitPrompt] streamGeminiChat invoke resolved');
@@ -569,15 +600,41 @@ export function useMeetingChat() {
     window.electronAPI?.ragCancelQuery?.({ meetingId: 'live-meeting-current' }).catch(() => {});
   }, [stop]);
 
+  const addQuickActionMessage = useCallback((text: string, screenshots: AttachedContext = []) => {
+    setSystemMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: 'user',
+        text,
+        hasScreenshot: screenshots.length > 0,
+        screenshotPreview: screenshots[0]?.preview,
+      },
+    ]);
+  }, [setSystemMessages]);
+
   const handleWhatToSay = useCallback(async () => {
+    const currentAttachments = attachedContext;
+    const userQuestion = inputValue.trim();
+    const promptText = userQuestion || (currentAttachments.length > 0 ? 'What should I say about this?' : 'Guide me on what to say next');
+
     analytics.trackCommandExecuted('what_to_say');
-    await submitPrompt({
-      userText: attachedContext.length > 0
-        ? 'What should I say about this?'
-        : 'What should I say in response to the latest interviewer context?',
-      placeholderIntent: 'what_to_answer',
-    });
-  }, [submitPrompt, attachedContext.length]);
+    setIsProcessing(true);
+    if (userQuestion) setInputValue('');
+    if (currentAttachments.length > 0) setAttachedContext([]);
+    addQuickActionMessage(promptText, currentAttachments);
+
+    try {
+      await window.electronAPI.generateWhatToSay(
+        userQuestion || undefined,
+        currentAttachments.length > 0 ? currentAttachments.map((s) => s.path) : undefined
+      );
+    } catch (err) {
+      pushSystemError(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [attachedContext, inputValue, addQuickActionMessage, pushSystemError, setAttachedContext, setInputValue, setIsProcessing]);
 
   const handleFollowUp = useCallback(async (intent: string = 'rephrase') => {
     setIsProcessing(true);
@@ -599,19 +656,8 @@ export function useMeetingChat() {
     analytics.trackCommandExecuted('code_hint');
 
     const currentAttachments = attachedContext;
-    if (currentAttachments.length > 0) {
-      setAttachedContext([]);
-      setSystemMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'user',
-          text: 'Give me a code hint for this',
-          hasScreenshot: true,
-          screenshotPreview: currentAttachments[0].preview,
-        },
-      ]);
-    }
+    if (currentAttachments.length > 0) setAttachedContext([]);
+    addQuickActionMessage('Give me a code hint for this', currentAttachments);
 
     try {
       await window.electronAPI.generateCodeHint(
@@ -625,30 +671,35 @@ export function useMeetingChat() {
     } finally {
       setIsProcessing(false);
     }
-  }, [attachedContext, setAttachedContext, setIsProcessing, setSystemMessages]);
+  }, [attachedContext, addQuickActionMessage, setAttachedContext, setIsProcessing, setSystemMessages]);
 
   const handleClarify = useCallback(async () => {
     setIsProcessing(true);
+    addQuickActionMessage('Ask a clarifying question');
     try {
       await window.electronAPI.generateClarify();
     } catch (err) {
       pushSystemError(err);
+    } finally {
       setIsProcessing(false);
     }
-  }, [pushSystemError]);
+  }, [addQuickActionMessage, pushSystemError]);
 
   const handleFollowUpQuestions = useCallback(async () => {
     setIsProcessing(true);
+    addQuickActionMessage('Suggest follow-up questions');
     try {
       await window.electronAPI.generateFollowUpQuestions();
     } catch (err) {
       pushSystemError(err);
+    } finally {
       setIsProcessing(false);
     }
-  }, [pushSystemError]);
+  }, [addQuickActionMessage, pushSystemError]);
 
   const handleRecap = useCallback(async () => {
     setIsProcessing(true);
+    addQuickActionMessage('Recap this conversation');
     try {
       await window.electronAPI.generateRecap();
     } catch (err) {
@@ -656,48 +707,33 @@ export function useMeetingChat() {
     } finally {
       setIsProcessing(false);
     }
-  }, [pushSystemError]);
+  }, [addQuickActionMessage, pushSystemError]);
 
   const handleBrainstorm = useCallback(async () => {
     setIsProcessing(true);
     const currentAttachments = attachedContext;
+    const problemStatement = inputValue.trim();
+    const promptText = problemStatement || (currentAttachments.length > 0 ? 'Brainstorm with this context' : 'Brainstorm approaches for the current topic');
 
-    if (currentAttachments.length > 0) {
-      setAttachedContext([]);
-      setSystemMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'user',
-          text: 'Brainstorm with this context',
-          hasScreenshot: true,
-          screenshotPreview: currentAttachments[0].preview,
-        },
-      ]);
-    }
+    if (problemStatement) setInputValue('');
+    if (currentAttachments.length > 0) setAttachedContext([]);
+    addQuickActionMessage(promptText, currentAttachments);
 
     try {
-      await window.electronAPI.generateBrainstorm(currentAttachments.length > 0 ? currentAttachments.map((s) => s.path) : undefined);
+      await window.electronAPI.generateBrainstorm(
+        currentAttachments.length > 0 ? currentAttachments.map((s) => s.path) : undefined,
+        problemStatement || undefined
+      );
     } catch (err) {
       pushSystemError(err);
     } finally {
       setIsProcessing(false);
     }
-  }, [attachedContext, pushSystemError]);
+  }, [attachedContext, inputValue, addQuickActionMessage, pushSystemError]);
 
   const handleAnswerNow = useCallback(async () => {
-    if (!inputValue) return;
-
-    // Try RAG first; fall back to useChat/sendMessage
-    try {
-      const ragResult = await window.electronAPI.ragQueryLive?.(inputValue || '');
-      if (ragResult?.success) return;
-    } catch {
-      // RAG unavailable — continue to useChat
-    }
-
-    sendMessage({ text: inputValue });
-  }, [inputValue, sendMessage]);
+    await handleWhatToSay();
+  }, [handleWhatToSay]);
 
   const handleManualSubmit = useCallback(async () => {
     if (!inputValue.trim() && attachedContext.length === 0) return;
@@ -722,10 +758,11 @@ export function useMeetingChat() {
       ]);
       setIsProcessing(true);
       try {
+        const assistantContext = await buildAssistantContext(conversationContextRef.current);
         await window.electronAPI.streamGeminiChat(
           userText || 'Analyze this screenshot',
           currentAttachments.map((s) => s.path),
-          conversationContextRef.current.slice(-8000)
+          assistantContext
         );
       } catch (err) {
         pushSystemError(err);

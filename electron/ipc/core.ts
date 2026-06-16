@@ -368,31 +368,32 @@ export function registerCoreHandlers(appState: AppState): void {
       _chatAbortController = abortController;
       const myStreamId = ++_chatStreamId;
 
-      // Update IntelligenceManager with USER message immediately
       const intelligenceManager = appState.getIntelligenceManager();
+
+      let fullResponse = "";
+
+      // Context Injection for the chat/answer path (100s rolling window).
+      // Capture this BEFORE adding the current prompt, otherwise the model sees
+      // the prompt duplicated as both transcript context and USER QUESTION.
+      if (!context) {
+        try {
+          const autoContext = intelligenceManager.getFormattedContext(100);
+          if (autoContext && autoContext.trim().length > 0) {
+            context = autoContext;
+            console.log(`[IPC] Auto-injected 100s transcript context for gemini-chat-stream (${context.length} chars)`);
+          }
+        } catch (ctxErr) {
+          console.warn("[IPC] Failed to auto-inject context:", ctxErr);
+        }
+      }
+
+      // Update IntelligenceManager with USER message after context capture.
       intelligenceManager.addTranscript({
         text: message,
         speaker: 'user',
         timestamp: Date.now(),
         final: true
       }, true);
-
-      let fullResponse = "";
-
-      // Context Injection for "Answer" button (100s rolling window)
-      if (!context) {
-        // User requested 100 seconds of context for the answer button
-        // Logic: If no explicit context provided (like from manual override), auto-inject from IntelligenceManager
-        try {
-          const autoContext = intelligenceManager.getFormattedContext(100);
-          if (autoContext && autoContext.trim().length > 0) {
-            context = autoContext;
-            console.log(`[IPC] Auto - injected 100s context for gemini - chat - stream(${context.length} chars)`);
-          }
-        } catch (ctxErr) {
-          console.warn("[IPC] Failed to auto-inject context:", ctxErr);
-        }
-      }
 
       try {
         const currentProvider = llmHelper.getCurrentProvider?.();

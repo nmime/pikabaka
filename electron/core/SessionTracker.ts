@@ -348,11 +348,9 @@ export class SessionTracker {
                 text: seg.text,
                 timestamp: seg.timestamp,
             }));
-        // Also include assistant messages from contextItems (they aren't in fullTranscript)
-        const assistantItems = this.contextItems.filter(
-            item => item.role === 'assistant' && item.timestamp >= cutoff
-        );
-        return [...fromTranscript, ...assistantItems].sort((a, b) => a.timestamp - b.timestamp);
+        // fullTranscript already includes assistant suggestions via addAssistantMessage;
+        // returning contextItems as well duplicates prior answers and pollutes prompts.
+        return fromTranscript.sort((a, b) => a.timestamp - b.timestamp);
     }
 
     getLastAssistantMessage(): string | null {
@@ -384,6 +382,17 @@ export class SessionTracker {
      * Get the last interviewer turn
      */
     getLastInterviewerTurn(): string | null {
+        if (this.lastInterimInterviewer?.text?.trim()) {
+            return this.lastInterimInterviewer.text.trim();
+        }
+
+        for (let i = this.fullTranscript.length - 1; i >= 0; i--) {
+            const segment = this.fullTranscript[i];
+            if (segment.final && this.mapSpeakerToRole(segment.speaker) === 'interviewer') {
+                return segment.text;
+            }
+        }
+
         for (let i = this.contextItems.length - 1; i >= 0; i--) {
             if (this.contextItems[i].role === 'interviewer') {
                 return this.contextItems[i].text;
