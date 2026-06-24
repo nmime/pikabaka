@@ -63,10 +63,106 @@ export function areTranscriptTextsSimilar(left: string, right: string): boolean 
   return union > 0 && (intersection / union >= 0.72 || intersection / Math.max(1, minWords) >= 0.78);
 }
 
+const CROSS_ROLE_DUPLICATE_WINDOW_MS = 8000;
+const CROSS_ROLE_DUPLICATE_SCAN_LIMIT = 80;
+const SEGMENT_ID_RECENT_SCAN_LIMIT = 160;
+
 function isCrossRoleDuplicate(a: TranscriptSegment, b: TranscriptEventForSegment): boolean {
   if (!b.speaker || a.speaker === b.speaker) return false;
   const delta = Math.abs((b.timestamp ?? Date.now()) - a.timestamp);
-  return delta <= 8000 && areTranscriptTextsSimilar(a.sourceText, b.sourceText || b.text);
+  return delta <= CROSS_ROLE_DUPLICATE_WINDOW_MS && areTranscriptTextsSimilar(a.sourceText, b.sourceText || b.text);
+}
+
+function findRecentCrossRoleDuplicate(
+  segments: TranscriptSegment[],
+  event: TranscriptEventForSegment
+): TranscriptSegment | undefined {
+  const eventTimestamp = event.timestamp ?? Date.now();
+  let scanned = 0;
+  for (let i = segments.length - 1; i >= 0 && scanned < CROSS_ROLE_DUPLICATE_SCAN_LIMIT; i -= 1) {
+    const item = segments[i];
+    if (eventTimestamp - item.timestamp > CROSS_ROLE_DUPLICATE_WINDOW_MS) {
+      break;
+    }
+    scanned += 1;
+    if (isCrossRoleDuplicate(item, event)) {
+      return item;
+    }
+  }
+  return undefined;
+}
+
+function pruneRecentUserDuplicates(
+  segments: TranscriptSegment[],
+  event: TranscriptEventForSegment
+): TranscriptSegment[] {
+  const eventTimestamp = event.timestamp ?? Date.now();
+  const duplicateIndexes = new Set<number>();
+  let scanned = 0;
+
+  for (let i = segments.length - 1; i >= 0 && scanned < CROSS_ROLE_DUPLICATE_SCAN_LIMIT; i -= 1) {
+    const item = segments[i];
+    if (eventTimestamp - item.timestamp > CROSS_ROLE_DUPLICATE_WINDOW_MS) {
+      break;
+    }
+    scanned += 1;
+    if (item.speaker === 'user' && isCrossRoleDuplicate(item, event)) {
+      duplicateIndexes.add(i);
+    }
+  }
+
+  if (duplicateIndexes.size === 0) {
+    return segments;
+  }
+  return segments.filter((_, index) => !duplicateIndexes.has(index));
+}
+
+function insertTranscriptSegmentSorted(segments: TranscriptSegment[], segment: TranscriptSegment): TranscriptSegment[] {
+  const last = segments[segments.length - 1];
+  if (!last || segment.timestamp >= last.timestamp) {
+    return [...segments, segment];
+  }
+
+  const insertAt = segments.findIndex((item) => item.timestamp > segment.timestamp);
+  if (insertAt === -1) {
+    return [...segments, segment];
+  }
+
+  return [
+    ...segments.slice(0, insertAt),
+    segment,
+    ...segments.slice(insertAt),
+  ];
+}
+
+
+function findTranscriptSegmentIndex(segments: TranscriptSegment[], segmentId: string, timestamp?: number): number {
+  if (!segmentId) return -1;
+
+  const lastIndex = segments.length - 1;
+  if (lastIndex >= 0 && segments[lastIndex].segmentId === segmentId) {
+    return lastIndex;
+  }
+
+  let scanned = 0;
+  const eventTimestamp = timestamp ?? segments[lastIndex]?.timestamp ?? Date.now();
+  for (let i = lastIndex; i >= 0 && scanned < SEGMENT_ID_RECENT_SCAN_LIMIT; i -= 1) {
+    const item = segments[i];
+    if (item.segmentId === segmentId) {
+      return i;
+    }
+    if (eventTimestamp - item.timestamp > CROSS_ROLE_DUPLICATE_WINDOW_MS && scanned >= CROSS_ROLE_DUPLICATE_SCAN_LIMIT) {
+      break;
+    }
+    scanned += 1;
+  }
+
+  // Translation retries can target an older visible row. Fall back only for bounded state,
+  // never for an unbounded long-video transcript.
+  if (segments.length <= SEGMENT_ID_RECENT_SCAN_LIMIT) {
+    return segments.findIndex((item) => item.segmentId === segmentId);
+  }
+  return -1;
 }
 
 export interface TranscriptEventForSegment {
@@ -106,30 +202,28 @@ export function upsertTranscriptSegment(
   const translationState = event.translationState || 'skipped';
 
   const eventSpeaker = event.speaker === 'user' ? 'user' : 'interviewer';
-  const crossRoleDuplicate = segments.find((item) => isCrossRoleDuplicate(item, { ...event, sourceText }));
+  const normalizedEvent = { ...event, sourceText };
+  const crossRoleDuplicate = findRecentCrossRoleDuplicate(segments, normalizedEvent);
   if (eventSpeaker === 'user' && crossRoleDuplicate?.speaker === 'interviewer') {
     return segments;
   }
 
   const prunedSegments = eventSpeaker === 'interviewer'
-    ? segments.filter((item) => !(item.speaker === 'user' && isCrossRoleDuplicate(item, { ...event, sourceText })))
+    ? pruneRecentUserDuplicates(segments, normalizedEvent)
     : segments;
 
-  const index = prunedSegments.findIndex((item) => item.segmentId === event.segmentId);
+  const index = findTranscriptSegmentIndex(prunedSegments, event.segmentId, event.timestamp);
   if (index === -1) {
-    return [
-      ...prunedSegments,
-      {
-        segmentId: event.segmentId,
-        speaker: event.speaker === 'user' ? 'user' : 'interviewer',
-        sourceText,
-        translatedText: event.translatedText?.trim() || undefined,
-        timestamp: event.timestamp ?? Date.now(),
-        speakerLabel,
-        translationState,
-        detectedLanguage: event.detectedLanguage || undefined,
-      },
-    ];
+    return insertTranscriptSegmentSorted(prunedSegments, {
+      segmentId: event.segmentId,
+      speaker: eventSpeaker,
+      sourceText,
+      translatedText: event.translatedText?.trim() || undefined,
+      timestamp: event.timestamp ?? Date.now(),
+      speakerLabel,
+      translationState,
+      detectedLanguage: event.detectedLanguage || undefined,
+    });
   }
 
   const updated = [...prunedSegments];

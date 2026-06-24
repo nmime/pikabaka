@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { areTranscriptTextsSimilar, upsertTranscriptSegment, type TranscriptDisplayMode, type TranscriptSegment } from '../lib/transcriptSegments';
 
+const MAX_LIVE_TRANSCRIPT_SEGMENTS = 1000;
+const PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS = 80;
+
+function keepRecentTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
+  return segments.length > MAX_LIVE_TRANSCRIPT_SEGMENTS
+    ? segments.slice(-MAX_LIVE_TRANSCRIPT_SEGMENTS)
+    : segments;
+}
+
 export function useMeetingTranscript() {
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false);
@@ -15,9 +24,35 @@ export function useMeetingTranscript() {
   const speakingTimeoutRef = useRef<number | null>(null);
   const currentInterviewerPartialRef = useRef('');
   const currentUserPartialRef = useRef('');
+  const lastInterviewerPartialUpdateAtRef = useRef(0);
+  const lastUserPartialUpdateAtRef = useRef(0);
 
   useEffect(() => { currentInterviewerPartialRef.current = currentInterviewerPartial; }, [currentInterviewerPartial]);
   useEffect(() => { currentUserPartialRef.current = currentUserPartial; }, [currentUserPartial]);
+
+  const setInterviewerPartialIfChanged = useCallback((text: string, immediate = false) => {
+    if (currentInterviewerPartialRef.current === text) return;
+    const now = Date.now();
+    if (!immediate && text && now - lastInterviewerPartialUpdateAtRef.current < PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS) {
+      currentInterviewerPartialRef.current = text;
+      return;
+    }
+    lastInterviewerPartialUpdateAtRef.current = now;
+    currentInterviewerPartialRef.current = text;
+    setCurrentInterviewerPartial(text);
+  }, []);
+
+  const setUserPartialIfChanged = useCallback((text: string, immediate = false) => {
+    if (currentUserPartialRef.current === text) return;
+    const now = Date.now();
+    if (!immediate && text && now - lastUserPartialUpdateAtRef.current < PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS) {
+      currentUserPartialRef.current = text;
+      return;
+    }
+    lastUserPartialUpdateAtRef.current = now;
+    currentUserPartialRef.current = text;
+    setCurrentUserPartial(text);
+  }, []);
 
   useEffect(() => {
     window.electronAPI?.getTranscriptTranslationSettings?.()
@@ -51,13 +86,13 @@ export function useMeetingTranscript() {
         setIsUserSpeaking(!transcript.final);
 
         if (transcript.final) {
-          setCurrentUserPartial('');
+          setUserPartialIfChanged('', true);
           const normalizedSegmentId =
             transcript.segmentId ||
             `user_${transcript.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
           setTranscriptSegments((prev) =>
-            upsertTranscriptSegment(prev, {
+            keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
               final: true,
               text: transcript.text,
               sourceText: transcript.sourceText,
@@ -77,9 +112,9 @@ export function useMeetingTranscript() {
         } else {
           if (areTranscriptTextsSimilar(transcript.text, currentInterviewerPartialRef.current)) {
             setIsUserSpeaking(false);
-            setCurrentUserPartial('');
+            setUserPartialIfChanged('', true);
           } else {
-            setCurrentUserPartial(transcript.text);
+            setUserPartialIfChanged(transcript.text);
           }
         }
         return;
@@ -92,13 +127,13 @@ export function useMeetingTranscript() {
       setIsInterviewerSpeaking(!transcript.final);
 
       if (transcript.final) {
-        setCurrentInterviewerPartial('');
+        setInterviewerPartialIfChanged('', true);
         const normalizedSegmentId =
           transcript.segmentId || `legacy_${transcript.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const speakerFromPayload = transcript.speakerLabel?.trim();
 
         setTranscriptSegments((prev) =>
-          upsertTranscriptSegment(prev, {
+          keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
             final: true,
             text: transcript.text,
             sourceText: transcript.sourceText,
@@ -125,13 +160,13 @@ export function useMeetingTranscript() {
         }, 3000);
       } else {
         if (areTranscriptTextsSimilar(transcript.text, currentUserPartialRef.current)) {
-          setCurrentUserPartial('');
+          setUserPartialIfChanged('', true);
           setIsUserSpeaking(false);
         }
-        setCurrentInterviewerPartial(transcript.text);
+        setInterviewerPartialIfChanged(transcript.text);
       }
     });
-  }, []);
+  }, [setInterviewerPartialIfChanged, setUserPartialIfChanged]);
 
   useEffect(() => {
     return () => {
@@ -153,7 +188,7 @@ export function useMeetingTranscript() {
 
       if (!result?.success) {
         setTranscriptSegments((prev) =>
-          upsertTranscriptSegment(prev, {
+          keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
             final: true,
             text: segment.sourceText,
             sourceText: segment.sourceText,

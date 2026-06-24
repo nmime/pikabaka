@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, Languages, Loader2 } from 'lucide-react';
 import type { TranscriptDisplayMode, TranscriptSegment } from '../../lib/transcriptSegments';
 
+const MAX_RENDERED_TRANSCRIPT_SEGMENTS = 240;
+
 interface TranscriptNotesProps {
     segments: TranscriptSegment[];
     partialText?: string;
@@ -87,6 +89,13 @@ const TranscriptNotes: React.FC<TranscriptNotesProps> = ({
     const hasContent = segments.length > 0 || !!partialText;
 
     const partialLabel = useMemo(() => partialSpeakerLabel.trim() || 'Interviewer', [partialSpeakerLabel]);
+    const visibleSegments = useMemo(
+        () => segments.length > MAX_RENDERED_TRANSCRIPT_SEGMENTS
+            ? segments.slice(-MAX_RENDERED_TRANSCRIPT_SEGMENTS)
+            : segments,
+        [segments]
+    );
+    const hiddenSegmentCount = segments.length - visibleSegments.length;
 
     useEffect(() => {
         if (!userScrolled && bottomRef.current) {
@@ -113,7 +122,12 @@ const TranscriptNotes: React.FC<TranscriptNotesProps> = ({
                 className="h-full min-h-0 w-full overflow-y-auto"
             >
                 <div className="space-y-3 px-1 pr-1">
-                    {segments.map((seg) => {
+                    {hiddenSegmentCount > 0 && (
+                        <div className="rounded-xl border border-border/40 bg-bg-secondary/40 px-3 py-2 text-center text-[11px] text-text-tertiary">
+                            Showing latest {visibleSegments.length} transcript entries; {hiddenSegmentCount} older entries remain saved in meeting history.
+                        </div>
+                    )}
+                    {visibleSegments.map((seg) => {
                         const hasTranslation =
                             !!seg.translatedText && seg.translatedText.trim() !== '' && seg.translatedText !== seg.sourceText;
                         const isTranslationPending = seg.translationState === 'pending';

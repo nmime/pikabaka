@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import t from 'tap';
 import { upsertTranscriptSegment } from '../src/lib/transcriptSegments';
 import { buildTranscriptTranslationPrompt, isTranscriptTranslationConfigured } from '../electron/transcript/translationExecutor';
@@ -61,6 +63,43 @@ t.test('upsertTranscriptSegment defaults user label when speaker is user', (t) =
   t.end();
 });
 
+
+t.test('upsertTranscriptSegment keeps long transcript updates bounded to recent duplicate window', (t) => {
+  let rows = [] as ReturnType<typeof upsertTranscriptSegment>;
+  for (let i = 0; i < 500; i += 1) {
+    rows = upsertTranscriptSegment(rows, {
+      final: true,
+      text: `interviewer turn ${i} unique words for long running video workload`,
+      sourceText: `interviewer turn ${i} unique words for long running video workload`,
+      segmentId: `seg_${i}`,
+      speaker: 'interviewer',
+      timestamp: 1_700_000_000_000 + i * 1000,
+    });
+  }
+
+  const before = Date.now();
+  const updated = upsertTranscriptSegment(rows, {
+    final: true,
+    text: 'latest question with unique bounded scan words',
+    sourceText: 'latest question with unique bounded scan words',
+    segmentId: 'seg_latest',
+    speaker: 'interviewer',
+    timestamp: 1_700_000_600_000,
+  });
+
+  t.equal(updated.length, 501, 'appends new segment');
+  t.ok(Date.now() - before < 100, 'long transcript update remains bounded');
+  t.end();
+});
+
+t.test('rolling transcript source caps rendered rows for long meetings', (t) => {
+  const source = readFileSync(path.join(process.cwd(), 'src/components/ui/RollingTranscript.tsx'), 'utf8');
+  t.match(source, /MAX_RENDERED_TRANSCRIPT_SEGMENTS = 240/, 'rendered transcript rows are capped');
+  t.match(source, /visibleSegments\.map/, 'component maps the visible tail instead of the full transcript');
+  t.match(source, /older entries remain saved/, 'UI explains older transcript entries are preserved');
+  t.end();
+});
+
 t.test('translation executor helpers validate config and build prompt', (t) => {
   t.equal(isTranscriptTranslationConfigured(true, 'qwen2.5:7b', 'Translate to Chinese'), true, 'valid config passes');
   t.equal(isTranscriptTranslationConfigured(true, '', 'Translate to Chinese'), false, 'missing model fails');
@@ -71,4 +110,12 @@ t.test('translation executor helpers validate config and build prompt', (t) => {
   t.match(prompt, /hello world/, 'prompt includes source text body');
   t.match(prompt, /Return translated text only/, 'prompt enforces clean output');
   t.end();
+});
+
+t.test('transcript segment id lookups avoid full scans during long video streams', (t) => {
+  const source = readFileSync(path.join(process.cwd(), 'src/lib/transcriptSegments.ts'), 'utf8');
+  t.match(source, /SEGMENT_ID_RECENT_SCAN_LIMIT = 160/, 'segment id lookup has a recent scan cap');
+  t.match(source, /findTranscriptSegmentIndex/, 'upsert uses a bounded segment id lookup helper');
+  t.match(source, /segments\.length <= SEGMENT_ID_RECENT_SCAN_LIMIT/, 'full id scan is allowed only for bounded small state');
+  t.notMatch(source, /const index = prunedSegments\.findIndex\(\(item\) => item\.segmentId === event\.segmentId\)/, 'hot upsert path no longer always scans the full transcript');
 });

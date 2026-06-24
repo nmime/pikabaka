@@ -25,6 +25,8 @@ t.test('user speech appears quickly with partials and low final flush latency', 
   const assemblerSource = readFileSync(path.join(process.cwd(), 'electron/lib/transcript-assembler.ts'), 'utf8');
 
   t.match(hookSource, /currentUserPartial/, 'user interim transcripts are tracked');
+  t.match(hookSource, /setInterviewerPartialIfChanged/, 'interviewer partial updates are deduplicated before rerender');
+  t.match(hookSource, /setUserPartialIfChanged/, 'user partial updates are deduplicated before rerender');
   t.match(panelSource, /partialSpeakerLabel=\{partialSpeakerLabel\}/, 'transcript panel labels user partials as Me');
   const audioPipelineSource = readFileSync(path.join(process.cwd(), 'electron/lib/audio-pipeline.ts'), 'utf8');
 
@@ -38,4 +40,13 @@ t.test('user speech appears quickly with partials and low final flush latency', 
   t.match(transcriptPanelSource, /WebkitLineClamp: 2/, 'meeting audio warning is capped to two compact lines');
   t.match(assemblerSource, /fragmentFlushDelayMs: 950/, 'default fragment flush is below one second');
   t.end();
+});
+
+t.test('live transcript state is bounded and partial updates are coalesced for long videos', (t) => {
+  const hookSource = readFileSync(path.join(process.cwd(), 'src/hooks/useMeetingTranscript.ts'), 'utf8');
+  t.match(hookSource, /MAX_LIVE_TRANSCRIPT_SEGMENTS = 1000/, 'renderer live transcript state is capped');
+  t.match(hookSource, /keepRecentTranscriptSegments\(upsertTranscriptSegment/, 'final transcript upserts are pruned to the live tail');
+  t.match(hookSource, /PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS = 80/, 'partial transcript updates are rate-limited');
+  t.match(hookSource, /lastInterviewerPartialUpdateAtRef/, 'interviewer partials track last render time');
+  t.match(hookSource, /lastUserPartialUpdateAtRef/, 'user partials track last render time');
 });
