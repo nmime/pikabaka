@@ -118,4 +118,5 @@ t.test('transcript segment id lookups avoid full scans during long video streams
   t.match(source, /findTranscriptSegmentIndex/, 'upsert uses a bounded segment id lookup helper');
   t.match(source, /segments\.length <= SEGMENT_ID_RECENT_SCAN_LIMIT/, 'full id scan is allowed only for bounded small state');
   t.notMatch(source, /const index = prunedSegments\.findIndex\(\(item\) => item\.segmentId === event\.segmentId\)/, 'hot upsert path no longer always scans the full transcript');
+  t.end();
 });

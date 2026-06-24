@@ -91,8 +91,8 @@ export function useMeetingTranscript() {
             transcript.segmentId ||
             `user_${transcript.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-          setTranscriptSegments((prev) =>
-            keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
+          setTranscriptSegments((prev) => {
+            const nextSegments = upsertTranscriptSegment(prev, {
               final: true,
               text: transcript.text,
               sourceText: transcript.sourceText,
@@ -103,8 +103,9 @@ export function useMeetingTranscript() {
               timestamp: transcript.timestamp,
               translationState: transcript.translationState,
               detectedLanguage: transcript.detectedLanguage,
-            })
-          );
+            });
+            return keepRecentTranscriptSegments(nextSegments);
+          });
 
           if (transcript.displayMode) {
             setTranscriptDisplayMode(transcript.displayMode);
@@ -132,8 +133,8 @@ export function useMeetingTranscript() {
           transcript.segmentId || `legacy_${transcript.timestamp || Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const speakerFromPayload = transcript.speakerLabel?.trim();
 
-        setTranscriptSegments((prev) =>
-          keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
+        setTranscriptSegments((prev) => {
+          const nextSegments = upsertTranscriptSegment(prev, {
             final: true,
             text: transcript.text,
             sourceText: transcript.sourceText,
@@ -144,8 +145,9 @@ export function useMeetingTranscript() {
             timestamp: transcript.timestamp,
             translationState: transcript.translationState,
             detectedLanguage: transcript.detectedLanguage,
-          })
-        );
+          });
+          return keepRecentTranscriptSegments(nextSegments);
+        });
 
         if (transcript.displayMode) {
           setTranscriptDisplayMode(transcript.displayMode);
@@ -187,8 +189,8 @@ export function useMeetingTranscript() {
       });
 
       if (!result?.success) {
-        setTranscriptSegments((prev) =>
-          keepRecentTranscriptSegments(upsertTranscriptSegment(prev, {
+        setTranscriptSegments((prev) => {
+          const nextSegments = upsertTranscriptSegment(prev, {
             final: true,
             text: segment.sourceText,
             sourceText: segment.sourceText,
@@ -196,12 +198,13 @@ export function useMeetingTranscript() {
             speakerLabel: segment.speakerLabel,
             timestamp: segment.timestamp,
             translationState: 'error',
-          })
-        );
+          });
+          return keepRecentTranscriptSegments(nextSegments);
+        });
       }
     } catch {
-      setTranscriptSegments((prev) =>
-        upsertTranscriptSegment(prev, {
+      setTranscriptSegments((prev) => {
+        const nextSegments = upsertTranscriptSegment(prev, {
           final: true,
           text: segment.sourceText,
           sourceText: segment.sourceText,
@@ -209,8 +212,9 @@ export function useMeetingTranscript() {
           speakerLabel: segment.speakerLabel,
           timestamp: segment.timestamp,
           translationState: 'error',
-        })
-      );
+        });
+        return keepRecentTranscriptSegments(nextSegments);
+      });
     }
   }, []);
 

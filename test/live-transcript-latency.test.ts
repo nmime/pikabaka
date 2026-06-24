@@ -45,8 +45,9 @@ t.test('user speech appears quickly with partials and low final flush latency', 
 t.test('live transcript state is bounded and partial updates are coalesced for long videos', (t) => {
   const hookSource = readFileSync(path.join(process.cwd(), 'src/hooks/useMeetingTranscript.ts'), 'utf8');
   t.match(hookSource, /MAX_LIVE_TRANSCRIPT_SEGMENTS = 1000/, 'renderer live transcript state is capped');
-  t.match(hookSource, /keepRecentTranscriptSegments\(upsertTranscriptSegment/, 'final transcript upserts are pruned to the live tail');
+  t.match(hookSource, /keepRecentTranscriptSegments\(nextSegments\)/, 'final transcript upserts are pruned to the live tail');
   t.match(hookSource, /PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS = 80/, 'partial transcript updates are rate-limited');
   t.match(hookSource, /lastInterviewerPartialUpdateAtRef/, 'interviewer partials track last render time');
   t.match(hookSource, /lastUserPartialUpdateAtRef/, 'user partials track last render time');
+  t.end();
 });
