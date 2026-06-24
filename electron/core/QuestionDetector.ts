@@ -21,11 +21,14 @@ type BufferedInterviewerTurn = {
 
 const FILLER_QUESTIONS = /^(right|okay|ok|yeah|yes|no|cool|great|good|sure|alright|you know|does that make sense)[?\s.!]*$/i;
 const QUESTION_START = /\b(can|could|would|will|do|does|did|is|are|was|were|have|has|had|should|tell|walk|explain|describe|how|why|what|when|where|which)\b/i;
+const CYRILLIC_QUESTION_START = /^\s*(?:а|и|ну|так|тогда|же|вот)?\s*(?:как|почему|зачем|что|чем|где|когда|куда|откуда|кто|кого|кому|какой|какая|какое|какие|каким|какими|сколько|можешь|можете|можно|нужно|надо)(?=$|[\s,;:.!?])/iu;
 const QUESTION_PHRASES = [
     /\b(tell me about|walk me through|explain how|describe how|what are|what is|what would|what do|what did|what have)\b/i,
     /\b(how would you|how do you|how did you|why do you|why did you|can you|could you|would you)\b/i,
     /\b(have you ever|do you have experience|what was your role|what did you learn)\b/i,
     /\b(what are the trade[- ]offs|how would you design|how would you debug|how would you test)\b/i,
+    /^\s*(?:а|и|ну|так|тогда|же|вот)?\s*(?:как|почему|зачем|что|где|когда|какой|какая|какие|можешь|можете|можно|нужно)(?=$|[\s,;:.!?])/iu,
+    /\b(?:как\s+(?:же\s+)?(?:работает|устроен|формируется|формулируется)|что\s+происходит|почему\s+(?:это|так)|можешь\s+объяснить|можете\s+объяснить|расскажи(?:те)?\s+как)\b/iu,
 ];
 const CODING_SIGNALS = [
     /\b(implement|write|code|solve|design|build|create|debug|optimize)\b/i,
@@ -34,13 +37,14 @@ const CODING_SIGNALS = [
     /\b(time complexity|space complexity|O\(n\)|algorithm|data structure|dynamic programming|binary search|BFS|DFS)\b/i,
 ];
 const TECHNICAL_SIGNALS = /\b(system design|architecture|database|cache|queue|api|service|microservice|react|typescript|javascript|node|python|sql|aws|kubernetes|docker|latency|scalability|consistency|index|transaction)\b/i;
+const CYRILLIC_TECHNICAL_SIGNALS = /(?:архитектур|база\s+данных|бд|кэш|кеш|очеред|api|апи|сервис|микросервис|браузер|запрос|ответ|http|https|сервер|клиент|индекс|транзакц|латентност|масштабируем|консистентн|алгоритм|структур[аы]\s+данных)/iu;
 const BEHAVIORAL_SIGNALS = /\b(tell me about a time|conflict|challenge|failure|strength|weakness|leadership|team|stakeholder|priority|deadline|project you worked on)\b/i;
 const CLARIFYING_SIGNALS = /\b(can you clarify|could you clarify|what do you mean|did you mean|are you asking)\b/i;
 
 function normalizeQuestionKey(text: string): string {
     return text
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 220);
@@ -107,8 +111,16 @@ function splitSentences(text: string): string[] {
         .filter(Boolean);
 }
 
+function hasQuestionStart(text: string): boolean {
+    return QUESTION_START.test(text) || CYRILLIC_QUESTION_START.test(text);
+}
+
+function hasTechnicalSignal(text: string): boolean {
+    return TECHNICAL_SIGNALS.test(text) || CYRILLIC_TECHNICAL_SIGNALS.test(text);
+}
+
 function hasSetupSignal(text: string): boolean {
-    return /(given|suppose|imagine|scenario|problem|requirement|constraint|input|output|array|string|service|api|database|queue|cache|architecture)/i.test(text);
+    return /(?:given|suppose|imagine|scenario|problem|requirement|constraint|input|output|array|string|service|api|database|queue|cache|architecture|представим|допустим|например|задача|требован|ограничен|вход|выход|массив|строка|сервис|база|очеред|кэш|кеш|архитектур|браузер|запрос)/iu.test(text);
 }
 
 function pickQuestionCandidate(text: string): string {
@@ -118,7 +130,7 @@ function pickQuestionCandidate(text: string): string {
 
     let anchorIndex = -1;
     for (let i = sentences.length - 1; i >= 0; i -= 1) {
-        if (/[?？]/.test(sentences[i]) || QUESTION_PHRASES.some((r) => r.test(sentences[i])) || QUESTION_START.test(sentences[i])) {
+        if (/[?？]/.test(sentences[i]) || QUESTION_PHRASES.some((r) => r.test(sentences[i])) || hasQuestionStart(sentences[i])) {
             anchorIndex = i;
             break;
         }
@@ -140,11 +152,11 @@ function assembleBufferedQuestionText(turns: BufferedInterviewerTurn[]): string 
 function classifyQuestion(text: string): DetectedQuestionType {
     if (CLARIFYING_SIGNALS.test(text)) return 'clarifying';
     const codingSignalCount = CODING_SIGNALS.filter((r) => r.test(text)).length;
-    const hasTechnicalSignal = TECHNICAL_SIGNALS.test(text);
+    const technicalSignalPresent = hasTechnicalSignal(text);
     const hasAlgorithmicSubject = /\b(array|string|list|tree|graph|matrix|integer|node|linked list|stack|heap|algorithm|data structure|time complexity|space complexity|O\(n\)|dynamic programming|binary search|BFS|DFS)\b/i.test(text);
-    if (hasTechnicalSignal && !hasAlgorithmicSubject) return 'technical';
+    if (technicalSignalPresent && !hasAlgorithmicSubject) return 'technical';
     if (codingSignalCount >= 2) return 'coding';
-    if (hasTechnicalSignal) return 'technical';
+    if (technicalSignalPresent) return 'technical';
     if (BEHAVIORAL_SIGNALS.test(text)) return 'behavioral';
     return 'other';
 }
@@ -158,8 +170,8 @@ function extractLikelyQuestion(text: string): { question: string; reason: string
     let score = 0;
     const reasons: string[] = [];
 
-    if (/\?/.test(candidate)) {
-        score += 0.38;
+    if (/[?？]/.test(candidate)) {
+        score += 0.42;
         reasons.push('question mark');
     }
     const phraseMatches = QUESTION_PHRASES.filter((r) => r.test(candidate)).length;
@@ -167,8 +179,8 @@ function extractLikelyQuestion(text: string): { question: string; reason: string
         score += 0.18 + Math.min(phraseMatches, 2) * 0.08;
         reasons.push('interview question phrasing');
     }
-    if (QUESTION_START.test(candidate)) {
-        score += 0.12;
+    if (hasQuestionStart(candidate)) {
+        score += 0.16;
         reasons.push('question starter');
     }
     const codingMatches = CODING_SIGNALS.filter((r) => r.test(candidate)).length;
@@ -176,8 +188,8 @@ function extractLikelyQuestion(text: string): { question: string; reason: string
         score += 0.22;
         reasons.push('coding/technical task signals');
     }
-    if (TECHNICAL_SIGNALS.test(candidate)) {
-        score += 0.08;
+    if (hasTechnicalSignal(candidate)) {
+        score += 0.1;
         reasons.push('technical topic');
     }
     if (BEHAVIORAL_SIGNALS.test(candidate)) {
@@ -187,6 +199,7 @@ function extractLikelyQuestion(text: string): { question: string; reason: string
 
     const wordCount = candidate.split(/\s+/).length;
     if (wordCount < 3) score -= 0.25;
+    if (wordCount >= 5) score += 0.04;
     if (wordCount >= 7) score += 0.08;
     if (wordCount >= 18) score += 0.05;
 
@@ -208,7 +221,7 @@ function isSafePartialDetection(question: string, score: number, audioConfidence
     const hasExplicitQuestionMark = /[?？]/.test(question);
     const hasInterviewPhrase = QUESTION_PHRASES.some((r) => r.test(question));
     const hasCodingTask = CODING_SIGNALS.filter((r) => r.test(question)).length >= 2;
-    const hasTechnicalQuestion = QUESTION_START.test(question) && TECHNICAL_SIGNALS.test(question);
+    const hasTechnicalQuestion = hasQuestionStart(question) && hasTechnicalSignal(question);
     return hasExplicitQuestionMark || hasInterviewPhrase || hasCodingTask || hasTechnicalQuestion || BEHAVIORAL_SIGNALS.test(question);
 }
 

@@ -47,6 +47,31 @@ test('QuestionDetector can assemble multi-turn interviewer prompts', (t) => {
   t.end();
 });
 
+
+test('QuestionDetector detects Russian interviewer questions from transcript', (t) => {
+  const screenshotQuestion = detectQuestionFromText('Как же браузер формирует запрос?');
+  t.ok(screenshotQuestion?.isQuestion, 'Russian screenshot question is detected');
+  t.equal(screenshotQuestion?.type, 'technical', 'browser/request Russian question is technical');
+  t.match(screenshotQuestion?.question || '', /Как же браузер формирует запрос\?/, 'detected question keeps the Russian text');
+
+  const contextual = detectQuestionFromText('Например, это просто развёрнут у нас БК, архитектура. А дальше мы поставим запрос. А как вообще запрос? Мы информируем, как браузер формулирует запрос.');
+  t.ok(contextual?.isQuestion, 'Russian contextual interviewer question is detected');
+  t.match(contextual?.question || '', /как вообще запрос|как браузер формулирует запрос/i, 'contextual detector keeps the relevant Russian question span');
+
+  const guardedPartial = new QuestionDetector({ allowPartialTranscript: true }).detect({
+    speaker: 'interviewer',
+    text: 'Как же браузер формирует запрос?',
+    timestamp: 3000,
+    final: false,
+    confidence: 0.93,
+  });
+  t.ok(guardedPartial?.isQuestion, 'guarded partial detector also catches Russian question before final STT flush');
+
+  const declarative = detectQuestionFromText('Мы информируем, как браузер формулирует запрос.');
+  t.equal(declarative, null, 'Russian declarative clause containing как is not treated as a question');
+  t.end();
+});
+
 test('QuestionDetector can use guarded interviewer partials for faster auto answer detection', (t) => {
   const defaultDetector = new QuestionDetector();
   const guardedDetector = new QuestionDetector({ allowPartialTranscript: true });
