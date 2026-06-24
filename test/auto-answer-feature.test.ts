@@ -47,6 +47,33 @@ test('QuestionDetector can assemble multi-turn interviewer prompts', (t) => {
   t.end();
 });
 
+test('QuestionDetector can use guarded interviewer partials for faster auto answer detection', (t) => {
+  const defaultDetector = new QuestionDetector();
+  const guardedDetector = new QuestionDetector({ allowPartialTranscript: true });
+
+  const partialQuestion = {
+    speaker: 'interviewer' as const,
+    text: 'How would you design a rate limiter for an API service?',
+    timestamp: 1000,
+    final: false,
+    confidence: 0.92,
+  };
+
+  t.equal(defaultDetector.detect(partialQuestion), null, 'partials remain disabled by default');
+  const detected = guardedDetector.detect(partialQuestion);
+  t.ok(detected?.isQuestion, 'strong interviewer partial question is detected before final STT flush');
+
+  const unsafe = new QuestionDetector({ allowPartialTranscript: true }).detect({
+    speaker: 'interviewer',
+    text: 'we are talking about cache invalidation today',
+    timestamp: 2000,
+    final: false,
+    confidence: 0.95,
+  });
+  t.equal(unsafe, null, 'non-question partial fragments are still ignored');
+  t.end();
+});
+
 
 test('cross-role duplicate transcript keeps interviewer and drops mic echo', (t) => {
   const session = new SessionTracker();
@@ -146,6 +173,7 @@ test('Auto Answer is wired end-to-end through manager, IPC, preload, and overlay
   const settings = read('src/components/SettingsOverlay.tsx');
 
   t.match(manager, /autoAnswerController\.handleTranscript\(segment\)/, 'accepted interviewer transcript stream flows into AutoAnswerController');
+  t.match(manager, /segment\.final === false/, 'interviewer partials are eligible for guarded Auto Answer detection');
   t.match(main, /auto-answer-question-detected/, 'main process forwards detected-question events');
   t.match(ipc, /get-auto-answer-settings/, 'settings IPC exists');
   t.match(ipc, /set-auto-answer-settings/, 'settings update IPC exists');
@@ -203,5 +231,28 @@ test('Claude streaming does not duplicate every text delta', (t) => {
   const fn = helper.slice(helper.indexOf('private async * streamWithClaude('), helper.indexOf('private async * streamWithOpenaiMultimodal('));
   const yields = fn.match(/yield event\.delta\.text/g) || [];
   t.equal(yields.length, 1, 'Claude text delta is yielded exactly once');
+  t.end();
+});
+
+test('Auto Answer generation waits stay below realtime latency budget', (t) => {
+  const source = readFileSync(path.join(process.cwd(), 'electron/core/AutoAnswerController.ts'), 'utf8');
+  t.match(source, /allowPartialTranscript: true/, 'auto answer can react to guarded interviewer partials before final flush');
+  t.match(source, /immediateGenerationDelayMs = 75/, 'explicit questions can generate almost immediately');
+  t.match(source, /generationDelayMs = 220/, 'strong detections use low hundreds of milliseconds debounce');
+  t.match(source, /partialGenerationDelayMs = 550/, 'uncertain detections no longer wait close to a second');
+  t.notMatch(source, /partialGenerationDelayMs = 6000/, 'old six-second delay is removed');
+  t.notMatch(source, /Math\.max\(this\.generationDelayMs, 3000\)/, 'old three-second confident fallback is removed');
+  t.match(source, /detection\.confidence >= 0\.72/, 'fast path still requires enough confidence');
+  t.end();
+});
+
+test('Auto Answer checks safe partial interviewer transcripts', (t) => {
+  const manager = read('electron/IntelligenceManager.ts');
+  const controller = read('electron/core/AutoAnswerController.ts');
+  const detector = read('electron/core/QuestionDetector.ts');
+  t.match(controller, /new QuestionDetector\(\{ allowPartialTranscript: true \}\)/, 'Auto Answer detector opts into partial transcript checks');
+  t.match(manager, /segment\.final === false/, 'partial interviewer transcript can enter Auto Answer check');
+  t.match(detector, /isSafePartialDetection/, 'partial transcript detections are gated by safety checks');
+  t.match(detector, /audioConfidence[\s\S]*< 0\.7/, 'partial detections require adequate STT confidence');
   t.end();
 });

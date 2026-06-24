@@ -55,7 +55,7 @@ export function normalizeAutoAnswerSettings(raw: Partial<AutoAnswerSettings> | u
 }
 
 export class AutoAnswerController extends EventEmitter {
-    private readonly detector = new QuestionDetector();
+    private readonly detector = new QuestionDetector({ allowPartialTranscript: true });
     private settings: AutoAnswerSettings;
     private state: AutoAnswerState;
     private activeDetection: QuestionDetection | null = null;
@@ -63,8 +63,9 @@ export class AutoAnswerController extends EventEmitter {
     private screenshotProvider: () => string[] = () => [];
     private pendingDetection: QuestionDetection | null = null;
     private pendingTimer: NodeJS.Timeout | null = null;
-    private readonly generationDelayMs = 1200;
-    private readonly partialGenerationDelayMs = 6000;
+    private readonly immediateGenerationDelayMs = 75;
+    private readonly generationDelayMs = 220;
+    private readonly partialGenerationDelayMs = 550;
 
     constructor(private readonly answerRunner: AnswerRunner) {
         super();
@@ -127,9 +128,13 @@ export class AutoAnswerController extends EventEmitter {
     private getGenerationDelayMs(detection: QuestionDetection): number {
         const text = detection.question.trim();
         const wordCount = text.split(/\s+/).filter(Boolean).length;
-        if (/[?？]\s*$/.test(text)) return this.generationDelayMs;
-        if (detection.confidence < 0.85 || wordCount < 12) return this.partialGenerationDelayMs;
-        return Math.max(this.generationDelayMs, 3000);
+        if (/[?？]\s*$/.test(text) && detection.confidence >= 0.72) {
+            return this.immediateGenerationDelayMs;
+        }
+        if (detection.confidence >= 0.85 && wordCount >= 10) {
+            return this.generationDelayMs;
+        }
+        return this.partialGenerationDelayMs;
     }
 
     private startGeneration(detection: QuestionDetection): void {

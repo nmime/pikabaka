@@ -199,23 +199,40 @@ function extractLikelyQuestion(text: string): { question: string; reason: string
     };
 }
 
+function isSafePartialDetection(question: string, score: number, audioConfidence?: number): boolean {
+    const wordCount = question.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 5) return false;
+    if (score < 0.68) return false;
+    if (typeof audioConfidence === 'number' && Number.isFinite(audioConfidence) && audioConfidence < 0.7) return false;
+
+    const hasExplicitQuestionMark = /[?？]/.test(question);
+    const hasInterviewPhrase = QUESTION_PHRASES.some((r) => r.test(question));
+    const hasCodingTask = CODING_SIGNALS.filter((r) => r.test(question)).length >= 2;
+    const hasTechnicalQuestion = QUESTION_START.test(question) && TECHNICAL_SIGNALS.test(question);
+    return hasExplicitQuestionMark || hasInterviewPhrase || hasCodingTask || hasTechnicalQuestion || BEHAVIORAL_SIGNALS.test(question);
+}
+
 export class QuestionDetector {
     private readonly bufferWindowMs: number;
     private readonly maxBufferedTurns: number;
     private readonly duplicateWindowMs: number;
+    private readonly allowPartialTranscript: boolean;
     private buffer: BufferedInterviewerTurn[] = [];
     private lastQuestionKey: string | null = null;
     private lastQuestionText: string | null = null;
     private lastQuestionAt = 0;
 
-    constructor(options?: { bufferWindowMs?: number; maxBufferedTurns?: number; duplicateWindowMs?: number }) {
+    constructor(options?: { bufferWindowMs?: number; maxBufferedTurns?: number; duplicateWindowMs?: number; allowPartialTranscript?: boolean }) {
         this.bufferWindowMs = options?.bufferWindowMs ?? 45_000;
         this.maxBufferedTurns = options?.maxBufferedTurns ?? 4;
         this.duplicateWindowMs = options?.duplicateWindowMs ?? 120_000;
+        this.allowPartialTranscript = options?.allowPartialTranscript === true;
     }
 
     detect(segment: TranscriptSegment & { segmentId?: string }): QuestionDetection | null {
-        if (segment.speaker !== 'interviewer' || !segment.final) return null;
+        if (segment.speaker !== 'interviewer') return null;
+        const isFinal = segment.final !== false;
+        if (!isFinal && !this.allowPartialTranscript) return null;
         const text = compactWhitespace(segment.text || '');
         if (!text || FILLER_QUESTIONS.test(text)) return null;
 
@@ -235,6 +252,7 @@ export class QuestionDetector {
         const combined = this.buffer.length > 1 ? extractLikelyQuestion(combinedText) : null;
         const picked = current && (!combined || current.score >= combined.score - 0.08) ? current : combined;
         if (!picked) return null;
+        if (!isFinal && !isSafePartialDetection(picked.question, picked.score, segment.confidence)) return null;
 
         const key = normalizeQuestionKey(picked.question);
         if (!key) return null;

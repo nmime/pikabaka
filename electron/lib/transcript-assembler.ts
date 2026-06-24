@@ -32,21 +32,21 @@ export const DEFAULT_TRANSCRIPT_ASSEMBLER_PROFILE: TranscriptAssemblerProfile = 
 
 const TRANSCRIPT_ASSEMBLER_THRESHOLDS: Record<TranscriptAssemblerProfile, TranscriptAssemblerThresholds> = {
   sentence_bias: {
-    maxSilenceBeforeNewTurnMs: 2200,
-    sentenceFlushDelayMs: 650,
-    fragmentFlushDelayMs: 950,
-    speechEndedSentenceFlushMs: 140,
-    speechEndedFragmentFlushMs: 420,
-    minWordsBeforeSentenceFlush: 8,
+    maxSilenceBeforeNewTurnMs: 1500,
+    sentenceFlushDelayMs: 280,
+    fragmentFlushDelayMs: 520,
+    speechEndedSentenceFlushMs: 90,
+    speechEndedFragmentFlushMs: 200,
+    minWordsBeforeSentenceFlush: 6,
     maxTurnDurationMs: 0,
   },
   low_latency: {
-    maxSilenceBeforeNewTurnMs: 2200,
-    sentenceFlushDelayMs: 700,
-    fragmentFlushDelayMs: 1450,
-    speechEndedSentenceFlushMs: 120,
-    speechEndedFragmentFlushMs: 500,
-    minWordsBeforeSentenceFlush: 8,
+    maxSilenceBeforeNewTurnMs: 1400,
+    sentenceFlushDelayMs: 180,
+    fragmentFlushDelayMs: 360,
+    speechEndedSentenceFlushMs: 60,
+    speechEndedFragmentFlushMs: 140,
+    minWordsBeforeSentenceFlush: 5,
     maxTurnDurationMs: 0,
   },
   coherent: {

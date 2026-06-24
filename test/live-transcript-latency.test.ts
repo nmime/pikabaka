@@ -38,7 +38,9 @@ t.test('user speech appears quickly with partials and low final flush latency', 
   t.match(rollingTranscriptSource, /h-8 w-8/, 'speaker avatar has enough room to avoid clipped initials/ring');
   t.match(rollingTranscriptSource, /space-y-3 px-1 pr-1/, 'transcript rows add horizontal padding so avatars are not clipped by the scroll area');
   t.match(transcriptPanelSource, /WebkitLineClamp: 2/, 'meeting audio warning is capped to two compact lines');
-  t.match(assemblerSource, /fragmentFlushDelayMs: 950/, 'default fragment flush is below one second');
+  t.match(assemblerSource, /sentenceFlushDelayMs: 280/, 'default sentence flush is sub-300ms for faster question detection');
+  t.match(assemblerSource, /fragmentFlushDelayMs: 520/, 'default fragment flush stays near half a second');
+  t.match(assemblerSource, /speechEndedFragmentFlushMs: 200/, 'speech-ended interviewer fragments flush quickly after audio stops');
   t.end();
 });
 
@@ -49,5 +51,13 @@ t.test('live transcript state is bounded and partial updates are coalesced for l
   t.match(hookSource, /PARTIAL_TRANSCRIPT_MIN_INTERVAL_MS = 80/, 'partial transcript updates are rate-limited');
   t.match(hookSource, /lastInterviewerPartialUpdateAtRef/, 'interviewer partials track last render time');
   t.match(hookSource, /lastUserPartialUpdateAtRef/, 'user partials track last render time');
+  t.end();
+});
+
+t.test('low-latency transcript profile stays faster than the default', (t) => {
+  const assemblerSource = readFileSync(path.join(process.cwd(), 'electron/lib/transcript-assembler.ts'), 'utf8');
+  t.match(assemblerSource, /low_latency:[\s\S]*sentenceFlushDelayMs: 180/, 'low-latency sentence flush is very short');
+  t.match(assemblerSource, /low_latency:[\s\S]*fragmentFlushDelayMs: 360/, 'low-latency fragment flush is capped well below half a second');
+  t.match(assemblerSource, /low_latency:[\s\S]*speechEndedFragmentFlushMs: 140/, 'low-latency speech-ended fragments flush quickly');
   t.end();
 });

@@ -156,7 +156,12 @@ export class IntelligenceManager extends EventEmitter {
 
     handleTranscript(segment: import('./core/SessionTracker').TranscriptSegment): TranscriptAddResult | null {
         const result = this.engine.handleTranscript(segment);
-        if (result?.role === 'interviewer' && !result.droppedAsDuplicate) {
+        const isInterviewerSegment = segment.speaker === 'interviewer';
+        const shouldCheckAutoAnswer = isInterviewerSegment && (
+            segment.final === false ||
+            (result?.role === 'interviewer' && !result.droppedAsDuplicate)
+        );
+        if (shouldCheckAutoAnswer) {
             this.autoAnswerController.handleTranscript(segment);
         }
         return result;
